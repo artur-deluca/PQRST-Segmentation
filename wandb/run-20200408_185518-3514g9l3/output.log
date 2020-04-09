@@ -1,0 +1,9 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+torch.Size([32, 1, 2000])
+Traceback (most recent call last):
+  File "train.py", line 123, in <module>
+    train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
+  File "train.py", line 49, in train
+    wandb.config({"predict": predict_plot, "ground truth": ground_truth_plot})
+TypeError: 'Config' object is not callable

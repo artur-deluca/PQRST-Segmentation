@@ -1,0 +1,12 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+Traceback (most recent call last):
+  File "train.py", line 122, in <module>
+    train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
+  File "train.py", line 48, in train
+    plot = Test.test(net, x, y)
+  File "/home/Wr1t3R/PQRST/unet/test.py", line 11, in test
+    plot = viz.predict_plotter(x[0][0], output[0], y[0])
+  File "/home/Wr1t3R/PQRST/unet/viz.py", line 30, in predict_plotter
+    ax2.plot(range(x,shape[0]), x)
+NameError: name 'shape' is not defined

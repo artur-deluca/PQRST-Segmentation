@@ -76,11 +76,17 @@ def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True):
     Y = np.concatenate((np.concatenate((Y[:, 0:2000, :], Y[:, 500:2500, :]), axis=0), Y[:, 1000:3000, :]), axis=0)
 
     if leads_seperate == True:
+        # (num_input, points, 12 leads)
         X = np.swapaxes(X, 1, 2)
+        # (num_input, 12 leads, points)
         X = np.reshape(X, (X.shape[0] * X.shape[1], 1, X.shape[2]))
+        # (num_input * 12, 1, points)
 
+    # (num_input, points, 4 labels)
     Y = np.repeat(Y, repeats=12, axis=0)
+    # (num_input * 12, points, 4 labels)
     Y = np.swapaxes(Y, 1, 2)
+    # (num_input * 12, 4 labels, points)
 
     X = torch.Tensor(X)
     Y = torch.Tensor(Y)

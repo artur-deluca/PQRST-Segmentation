@@ -13,6 +13,9 @@ graphviz = "*"
 tqdm = "*"
 pandas = "*"
 matplotlib = "*"
+wandb = "*"
+plotly = "*"
+cycler = "*"
 
 [requires]
 python_version = "3.6"

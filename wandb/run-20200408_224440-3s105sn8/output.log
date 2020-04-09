@@ -1,0 +1,12 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+Traceback (most recent call last):
+  File "train.py", line 122, in <module>
+    train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
+  File "train.py", line 48, in train
+    plot = Test.test(net, x, y)
+  File "/home/Wr1t3R/PQRST/unet/test.py", line 11, in test
+    plot = viz.predict_plotter(x[0][0], output[0], y[0])
+  File "/home/Wr1t3R/PQRST/unet/viz.py", line 22, in predict_plotter
+    lines = [((x0, y0), (x1, y1)) for x0, y0, x1, y1 in zip(x.shape[0][:-1], x[:-1], x.shape[0][1:], x[1:])]
+TypeError: 'int' object is not subscriptable

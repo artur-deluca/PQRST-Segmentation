@@ -1,0 +1,22 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+Traceback (most recent call last):
+  File "train.py", line 123, in <module>
+    train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
+  File "train.py", line 48, in train
+    predict_plot, ground_truth_plot = Test.test(net, x, y)
+  File "/home/Wr1t3R/PQRST/unet/test.py", line 9, in test
+    output = net(x)
+  File "/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/Wr1t3R/PQRST/unet/model.py", line 50, in forward
+    c1 = self.conv1(x)
+  File "/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/torch/nn/modules/container.py", line 100, in forward
+    input = module(input)
+  File "/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/torch/nn/modules/module.py", line 532, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/torch/nn/modules/conv.py", line 202, in forward
+    self.padding, self.dilation, self.groups)
+RuntimeError: Input type (torch.FloatTensor) and weight type (torch.cuda.FloatTensor) should be the same

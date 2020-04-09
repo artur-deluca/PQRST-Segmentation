@@ -1,0 +1,9 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+<module 'matplotlib.pyplot' from '/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/matplotlib/pyplot.py'>
+<module 'matplotlib.pyplot' from '/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/matplotlib/pyplot.py'>
+/home/Wr1t3R/.local/share/virtualenvs/unet-YAYnS212/lib/python3.6/site-packages/plotly/matplotlylib/mpltools.py:368: MatplotlibDeprecationWarning:
+
+
+The is_frame_like function was deprecated in Matplotlib 3.1 and will be removed in 3.3.
+

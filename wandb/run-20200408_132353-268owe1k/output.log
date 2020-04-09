@@ -1,0 +1,3 @@
+torch.Size([10, 4, 2000])
+INFO: Using device cuda
+1

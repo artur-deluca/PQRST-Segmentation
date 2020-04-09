@@ -28,3 +28,12 @@ def eval_net(net, loader, device):
             pbar.update()
 
     return tot / n_val, correct / total
+
+def onset_offset_generator(sig):
+    # sig(4, seconds)
+    onset_offset = np.zeros(sig.shape)
+    for i in range(sig.shape[0]):
+        for j in range(sig.shape[1]):
+            if sig[i][j] != sig[i][j+1]:
+                onset_offset[i][j] = 1
+                
