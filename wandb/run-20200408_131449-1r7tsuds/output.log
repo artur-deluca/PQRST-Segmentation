@@ -1,8 +1,0 @@
-torch.Size([10, 4, 2000])
-INFO: Using device cuda
-Traceback (most recent call last):
-  File "train.py", line 109, in <module>
-    train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
-  File "train.py", line 38, in train
-    print(test.shape)
-AttributeError: 'Subset' object has no attribute 'shape'

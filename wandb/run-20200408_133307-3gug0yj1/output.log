@@ -1,12 +1,0 @@
-torch.Size([10, 4, 2000])
-INFO: Using device cuda
-INFO: Start training:
-        Epochs:         1000
-        Batch size:     32
-        Learning rate:  0.0001
-        Training size:  4320
-        Validation size:720
-        Device:         cuda
-        
-  0%|                                                                      | 0/4320 [00:00<?, ?it/s]32
-  0%|                                                                      | 0/4320 [00:00<?, ?it/s]

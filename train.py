@@ -5,6 +5,8 @@ import os
 import torch
 import torch.nn as nn
 from torch import optim
+import pickle
+
 from tqdm import tqdm
 
 import wandb
@@ -21,7 +23,7 @@ from torch.utils.data import DataLoader, random_split
 
 
 wandb_config = {
-        "epochs": 100,
+        "epochs": 50,
         "batch_size": 32,
         "lr": 1e-4
         }
@@ -29,6 +31,8 @@ wandb.config.update(wandb_config)
 
 
 def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda')):
+    wandb.watch(net)
+
     data = g.load_dataset()
 
     # calculate train, validation, test dataset size
@@ -41,7 +45,7 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
     val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
    
-    """
+    """ 
     test_iter = iter(test_loader)
     [x, y] = test_iter.next()
     x = x.to(device, dtype=torch.float32)
@@ -97,19 +101,27 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
                 global_step += 1
 
                 #if global_step % (len(data) // (10 * batch_size)) == 0:
-            val_score, acc = eval_net(net, val_loader, device)
+            val_score, acc, Se, PPV, F1 = eval_net(net, val_loader, device)
             scheduler.step(val_score)
-            wandb.log({'epoch': epoch, 'loss': val_score})
+            wandb.log({'epoch': epoch, 'loss': val_score, 'Se': Se, 'PPV': PPV, 'F1': F1})
             logging.info('Validation cross entropy: {}'.format(val_score))
-            logging.info('Acc: {}'.format(acc))
+            logging.info('Acc:\t{}'.format(acc))
+            logging.info('Se:\t{}'.format(Se))
+            logging.info('PPV:\t{}'.format(PPV))
+            logging.info('F1:\t{}'.format(F1))
+            
             #if epoch % 10 == 0:
                 #test_net(net, test_loader, device)
+    
     test_iter = iter(test_loader)
     [x, y] = test_iter.next()
     x = x.to(device, dtype=torch.float32)
     y = y.to(device, dtype=torch.float32)
     plot = Test.test(net, x, y)
     wandb.log({'visualization': plot})
+    
+
+    torch.save(net.state_dict(), os.path.join(wandb.run.dir, "model.pkl"))
 
 
 if __name__ == "__main__":
