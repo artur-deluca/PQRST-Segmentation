@@ -44,8 +44,8 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-   
-    """ 
+
+    """
     test_iter = iter(test_loader)
     [x, y] = test_iter.next()
     x = x.to(device, dtype=torch.float32)
@@ -68,7 +68,7 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
 
     optimizer = optim.Adam(net.parameters())
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-    
+
     criterion = nn.BCEWithLogitsLoss()
 
     for epoch in range(epochs):
@@ -109,17 +109,18 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
             logging.info('Se:\t{}'.format(Se))
             logging.info('PPV:\t{}'.format(PPV))
             logging.info('F1:\t{}'.format(F1))
-            
+
             #if epoch % 10 == 0:
                 #test_net(net, test_loader, device)
-    
+
     test_iter = iter(test_loader)
     [x, y] = test_iter.next()
     x = x.to(device, dtype=torch.float32)
     y = y.to(device, dtype=torch.float32)
     plot = Test.test(net, x, y)
     wandb.log({'visualization': plot})
-    
+
+    torch.save(net.state_dict(), "model.pkl")
 
     torch.save(net.state_dict(), os.path.join(wandb.run.dir, "model.pkl"))
 
@@ -131,7 +132,7 @@ if __name__ == "__main__":
 
     net = UNet(in_ch=1, out_ch=4)
     net.to(device)
-    
+
     try:
         train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
     except KeyboardInterrupt:

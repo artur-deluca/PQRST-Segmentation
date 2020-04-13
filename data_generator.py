@@ -34,7 +34,7 @@ def load_raw_dataset(raw_dataset):
         qrs = get_mask(qrs_delin, signal_len)
         t = get_mask(t_delin, signal_len)
         background = get_background(p, qrs, t)
-        
+
         y.append(p)
         y.append(qrs)
         y.append(t)
@@ -92,6 +92,20 @@ def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True):
     Y = torch.Tensor(Y)
 
     return Data.TensorDataset(X, Y)
+
+def dataset_preprocessing(data, leads_seperate=True):
+    # (# of data, points, leads)
+    data = np.swapaxes(data, 1, 2)
+    # (# of data, leads, points)
+    if leads_seperate == True:
+        if data.shape[1] > 2:
+            data = np.reshape(data, (data.shape[0] * data.shape[1], 1, data.shape[2]))
+
+    data = data[:, :, 500:4500]
+    data = torch.Tensor(data)
+
+    return data
+
 
 
 if __name__ == "__main__":

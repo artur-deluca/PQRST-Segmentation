@@ -1,3 +1,4 @@
 *.pkl
 data
 wandb
+audicor_reader

@@ -17,6 +17,10 @@ wandb = "*"
 plotly = "*"
 cycler = "*"
 tabulate = "*"
+scipy = "*"
+pywavelets = "*"
+tensorflow = "*"
+keras = "*"
 
 [requires]
 python_version = "3.6"
