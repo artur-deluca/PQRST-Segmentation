@@ -101,7 +101,8 @@ def dataset_preprocessing(data, leads_seperate=True):
         if data.shape[1] > 2:
             data = np.reshape(data, (data.shape[0] * data.shape[1], 1, data.shape[2]))
 
-    data = data[:, :, 500:4500]
+    #data = data[:, :, 500:4500]
+    data = data[:, :, :4992]
     data = torch.Tensor(data)
 
     return data

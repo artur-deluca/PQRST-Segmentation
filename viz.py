@@ -35,6 +35,7 @@ def predict_plotter(x, pred, y=None):
         ax2.set_title('ground truth')
         for index, line in enumerate(lines):
             xx, yy = zip(line[0], line[1])
+            ax2.plot(xx, yy, color=color_table_y[index])
 
     else:
         fig, ax1 = plt.subplots(1,1)

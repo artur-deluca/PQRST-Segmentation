@@ -21,6 +21,7 @@ scipy = "*"
 pywavelets = "*"
 tensorflow = "*"
 keras = "*"
+xlrd = "*"
 
 [requires]
 python_version = "3.6"

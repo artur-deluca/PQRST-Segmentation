@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from utils import onset_offset_generator, validation_accuracy
+from utils import onset_offset_generator, validation_accuracy, validation_duration_accuracy
 
 def eval_net(net, loader, device):
     net.eval()
@@ -35,14 +35,15 @@ def eval_net(net, loader, device):
             pred_onset_offset = onset_offset_generator(pred_ans[:, :3, :])
             gt_onset_offset = onset_offset_generator(ground_truth[:, :3, :])
             tp, fp, fn = validation_accuracy(pred_onset_offset, gt_onset_offset)
+            ret = validation_duration_accuracy(pred_onset_offset)
             TP += tp
             FP += fp
             FN += fn
-            
+
             pbar.update()
-        
+
     Se = TP / (TP + FN)
     PPV = TP / (TP + FP)
     F1 = 2 * Se * PPV / (Se + PPV)
-        
-    return tot / n_val, correct / total, Se, PPV, F1
+
+    return tot / n_val, correct / total, Se, PPV, F1, ret
