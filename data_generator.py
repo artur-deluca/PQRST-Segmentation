@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle as pkl
 import torch
+import BaselineWanderRemoval as bwr
+from tqdm import tqdm
+import viz
 
 import torch.utils.data as Data
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
@@ -66,8 +69,21 @@ def get_background(p, qrs, t):
             background[i]=1
     return background
 
-def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True):
+def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
     X, Y = load_raw_dataset(raw_dataset)
+    if fix_baseline_wander:
+        X = baselineWanderRemoval(X, FREQUENCY_OF_DATASET)
+
+    if smooth:
+        smoothed = []
+        # number of signals
+        for i in range(X.shape[0]):
+            # leads
+            for j in range(X.shape[2]):
+                smoothed.append(smooth_signal(X[i, :, j]))
+        X = np.array(smoothed)[:, :5000, np.newaxis]
+        
+
     # data augmentation and modification
     # delete first and last 2 seconds
     X, Y = X[:, 1000:4000, :], Y[:, 1000:4000, :]
@@ -93,7 +109,16 @@ def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True):
 
     return Data.TensorDataset(X, Y)
 
-def dataset_preprocessing(data, leads_seperate=True):
+def baselineWanderRemoval(signal, frequency):
+    num_data = signal.shape[0]
+    num_leads = signal.shape[2]
+    for i in tqdm(range(num_data)):
+        for j in range(num_leads):
+            signal[i, :, j] = bwr.fix_baseline_wander(signal[i, :, j], frequency)
+    return signal
+
+# this function is used to preprocess the IEC signal
+def dataset_preprocessing(data, leads_seperate=True, smooth=False):
     # (# of data, points, leads)
     data = np.swapaxes(data, 1, 2)
     # (# of data, leads, points)
@@ -101,13 +126,53 @@ def dataset_preprocessing(data, leads_seperate=True):
         if data.shape[1] > 2:
             data = np.reshape(data, (data.shape[0] * data.shape[1], 1, data.shape[2]))
 
-    #data = data[:, :, 500:4500]
-    data = data[:, :, :4992]
-    data = torch.Tensor(data)
+    if smooth:
+        smoothed = []
+        for i in range(data.shape[0]):
+            smoothed.append(smooth_signal(data[i, 0, :]))
 
-    return data
+        smoothed = np.array(smoothed)[:, np.newaxis, :5008]
+        smoothed = torch.Tensor(smoothed)
 
+        return smoothed
 
+    else:
+        #data = data[:, :, 500:4500]
+        data = data[:, :, :4992]
+        data = torch.Tensor(data)
+
+        return data
+
+def smooth_signal(signal, window_len=20, window="hanning"):
+    if signal.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+
+    if signal.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size")
+    
+    if window_len < 3:
+        return signal
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError("Window is on of 'flat', 'hamming', 'bartlett', 'blackman'")
+    
+    s=np.r_[signal[window_len-1:0:-1], signal, signal[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    return y
+
+def preview_data():
+    X, Y = load_raw_dataset(raw_dataset=raw_dataset_path)
+    smooth_signals = []
+    for i in range(X.shape[0]):
+        # lead 2
+        smooth_signals.append(smooth_signal(X[i, :, 1]))
+    viz.signals_plot_all(np.array(smooth_signals))
 
 if __name__ == "__main__":
-    xy = load_dataset()
+    preview_data()

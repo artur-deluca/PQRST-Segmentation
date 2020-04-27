@@ -10,7 +10,6 @@ import pickle
 from tqdm import tqdm
 
 import wandb
-wandb.init(project="PQRST-segmentation")
 
 
 from model import UNet
@@ -20,14 +19,15 @@ import viz
 import test as Test
 
 from torch.utils.data import DataLoader, random_split
-
+from focalloss import FocalLoss
 
 wandb_config = {
-        "epochs": 50,
+        "epochs": 200,
         "batch_size": 32,
-        "lr": 1e-4
+        "lr": 1e-4,
+        "focalloss_alpha": 0.25,
+        "focalloss_gamma": 1.5
         }
-wandb.config.update(wandb_config)
 
 
 def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda')):
@@ -69,7 +69,8 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
     optimizer = optim.Adam(net.parameters())
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
-    criterion = nn.BCEWithLogitsLoss()
+    #criterion = nn.BCEWithLogitsLoss()
+    criterion = FocalLoss(alpha=wandb.config.focalloss_alpha,gamma=wandb.config.focalloss_gamma)
 
     for epoch in range(epochs):
         net.train()
@@ -127,6 +128,9 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
 
 
 if __name__ == "__main__":
+    ex = wandb.init(project="PQRST-segmentation")
+    ex.config.setdefaults(wandb_config)
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device {device}')

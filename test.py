@@ -15,10 +15,10 @@ from utils import onset_offset_generator, validation_duration_accuracy
 
 def test(net, x, ground_truth=None):
     net.eval()
-    # input size should be (1, 1, 500 * seconds)
+    # input size should be (num_of_signals, 1, 500 * seconds)
     with torch.no_grad():
         output = net(x)
-    # output size should be (1, 4, 500 * seconds)
+    # output size should be (num_of_signals, 4, 500 * seconds)
     if ground_truth is not None:
         plot = viz.predict_plotter(x[0][0], output[0], ground_truth[0])
     else:
@@ -31,7 +31,7 @@ def test(net, x, ground_truth=None):
     return plot, intervals
 
 def test_using_IEC():
-    tol = 30
+    tol = 10
     # (num of ekg signal, length, 1)
     ekg_sig = []
     for i in range(1, 126):
@@ -42,7 +42,7 @@ def test_using_IEC():
             ekg_sig.append(sig)
         except IOError:
             print("file {} does not exist".format("CSE"+str(i).rjust(3, '0')))
-    ekg_sig = dataset_preprocessing(ekg_sig)
+    ekg_sig = dataset_preprocessing(ekg_sig, smooth=False)
     ekg_sig = ekg_sig.to('cuda')
     net = UNet(in_ch=1, out_ch=4)
     net.to('cuda')

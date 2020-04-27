@@ -22,6 +22,7 @@ pywavelets = "*"
 tensorflow = "*"
 keras = "*"
 xlrd = "*"
+baselinewanderremoval = "*"
 
 [requires]
 python_version = "3.6"
