@@ -11,7 +11,8 @@ wandb.init(project="PQRST-segmentation")
 from model import UNet
 from data_generator import dataset_preprocessing
 from audicor_reader.reader import read_IEC
-from utils import onset_offset_generator, validation_duration_accuracy
+from utils.val_utils import validation_duration_accuracy
+from utils.data_utils import onset_offset_generator
 
 def test(net, x, ground_truth=None):
     net.eval()
@@ -31,7 +32,7 @@ def test(net, x, ground_truth=None):
     return plot, intervals
 
 def test_using_IEC():
-    tol = 10
+    tol = 30
     # (num of ekg signal, length, 1)
     ekg_sig = []
     for i in range(1, 126):

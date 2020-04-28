@@ -3,7 +3,8 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from utils import onset_offset_generator, validation_accuracy, validation_duration_accuracy
+from utils.val_utils import validation_accuracy, validation_duration_accuracy
+from utils.data_utils import onset_offset_generator
 
 def eval_net(net, loader, device):
     net.eval()

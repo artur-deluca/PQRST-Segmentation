@@ -1,28 +1,6 @@
 import numpy as np
 import torch
 
-def onset_offset_generator(sig):
-    """
-    # sig(4, seconds)
-    onset = np.zeros(sig.shape)
-    offset = np.zeros(sig.shape)
-    for i in range(sig.shape[0]):
-        for j in range(sig.shape[1]-1):
-            if sig[i][j] == 0 and sig[i][j+1] == 1:
-                onset[i][j] = 1
-            if sig[i][j] == 1 and sig[i][j+1] == 0:
-                offset[i][j] = 1
-    """
-    sig = sig.cpu().numpy()
-    # sig(batch_size, 4, seconds)
-    # next signal value
-    next_sig = np.roll(sig, -1, axis=2)
-
-    # onset will be -1 and offset will be 1 (background channel is useless)
-    onset_offset = sig - next_sig
-
-    return onset_offset
-
 def validation_accuracy(pred_onset_offset, gt_onset_offset):
     # (batch_size, 4, seconds) only first 3 channels will be used
 
