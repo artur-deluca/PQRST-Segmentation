@@ -4,14 +4,14 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from utils.val_utils import validation_accuracy, validation_duration_accuracy
-from utils.data_utils import onset_offset_generator
+from utils.data_utils import onset_offset_generator, onset_offset_unsmooth_and_combine
 
 def eval_net(net, loader, device):
     net.eval()
     n_val = len(loader)
     tot = 0
     correct = 0
-    total = 0
+    total = 1
 
     TP = 0
     FP = 0
@@ -26,15 +26,24 @@ def eval_net(net, loader, device):
             with torch.no_grad():
                 pred = net(x)
 
-            tot += F.binary_cross_entropy_with_logits(pred, ground_truth).item()
+            #tot += F.binary_cross_entropy_with_logits(pred, ground_truth).item()
+            tot += F.mse_loss(pred, ground_truth).item()
             # (batch_size, channels, data)
+            """
             pred_ans = F.one_hot(pred.argmax(1), num_classes=4).permute(0, 2, 1)
             correct += pred_ans.eq(ground_truth).sum().item()
             total += ground_truth.shape[0] * ground_truth.shape[1] * ground_truth.shape[2]
+            """
 
             # only use first 3 channels because first three channels will produce all onsets/offsets
+            """
             pred_onset_offset = onset_offset_generator(pred_ans[:, :3, :])
             gt_onset_offset = onset_offset_generator(ground_truth[:, :3, :])
+            """
+            
+            pred_onset_offset = onset_offset_unsmooth_and_combine(pred)
+            gt_onset_offset = onset_offset_unsmooth_and_combine(ground_truth)
+
             tp, fp, fn = validation_accuracy(pred_onset_offset, gt_onset_offset)
             ret = validation_duration_accuracy(pred_onset_offset)
             TP += tp

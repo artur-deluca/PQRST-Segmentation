@@ -4,15 +4,15 @@ import torch
 from matplotlib.collections import LineCollection
 
 def predict_plotter(x, pred, y=None):
-    x = x.detach().cpu().numpy()
-    pred = pred.detach().cpu().numpy()
+    #x = x.detach().cpu().numpy()
+    #pred = pred.detach().cpu().numpy()
 
     color = ["red", "blue", "green", "black"]
     color_arg_pred = np.argmax(pred, axis=0)
     color_table_pred = []
 
     if y is not None:
-        y = y.detach().cpu().numpy()
+        #y = y.detach().cpu().numpy()
         color_arg_y = np.argmax(y, axis=0)
         color_table_y = []
         for t in range(x.shape[0]):
@@ -48,10 +48,10 @@ def predict_plotter(x, pred, y=None):
 
     return plt
 
-def signals_plot_all(signals):
+def signals_plot_all(signals, name=""):
     # signals(number_of_signals, signal)
     for i in range(signals.shape[0]):
         plt.close('all')
         plt.plot(range(signals.shape[1]), signals[i])
-        plt.savefig("./out_pic/" + str(i) + ".png")
+        plt.savefig("./out_pic/" + name + str(i) + ".png")
     plt.close('all')

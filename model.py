@@ -26,8 +26,8 @@ class UNet(nn.Module):
         self.upconv3 = self.ConvTransNet(16)
         self.conv8 = self.ConvNet(24, 8, 9, 1, 4)
         self.upconv4 = self.ConvTransNet(8)
-        self.conv9 = self.ConvNet(12, 4, 9, 1, 4)
-        self.final = nn.Conv1d(4, out_ch, 1)
+        self.conv9 = self.ConvNet(12, 6, 9, 1, 4)
+        self.final = nn.Conv1d(6, out_ch, 1)
         
         # upconv
     def ConvNet(self, in_ch, out_ch, kernel_size, stride, padding):
@@ -72,7 +72,7 @@ class UNet(nn.Module):
         return f
 
 x = Variable(torch.randn(10, 1, 2000))
-net = UNet(1, 4)
+net = UNet(1, 6)
 y = net(x)
 print(y.size())
 viz = make_dot(y.mean(), params=dict(net.named_parameters()))

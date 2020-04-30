@@ -22,15 +22,17 @@ from torch.utils.data import DataLoader, random_split
 from focalloss import FocalLoss
 
 wandb_config = {
-        "epochs": 50,
+        "epochs": 200,
         "batch_size": 32,
-        "lr": 1e-4,
+        "lr": 1e-3,
         "focalloss_alpha": 0.25,
         "focalloss_gamma": 1.5
         }
 
 
-def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda')):
+def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'), load=True):
+    if load==True:
+        net.load_state_dict(torch.load("net_params.pkl"))
     wandb.watch(net)
 
     data = g.load_dataset()
@@ -45,16 +47,6 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
     val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = DataLoader(test, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
 
-    """
-    test_iter = iter(test_loader)
-    [x, y] = test_iter.next()
-    x = x.to(device, dtype=torch.float32)
-    y = y.to(device, dtype=torch.float32)
-    plot = Test.test(net, x, y)
-    wandb.log({"p": plot})
-    exit()
-    """
-
     global_step = 0
 
     logging.info(f'''Start training:
@@ -66,11 +58,12 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
         Device:         {device.type}
         ''')
 
-    optimizer = optim.Adam(net.parameters())
+    optimizer = optim.Adam(net.parameters(), lr=wandb.config.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     #criterion = nn.BCEWithLogitsLoss()
-    criterion = FocalLoss(alpha=wandb.config.focalloss_alpha,gamma=wandb.config.focalloss_gamma)
+    #criterion = FocalLoss(alpha=wandb.config.focalloss_alpha,gamma=wandb.config.focalloss_gamma)
+    criterion = nn.MSELoss()
 
     for epoch in range(epochs):
         net.train()
@@ -114,14 +107,14 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'))
 
             #if epoch % 10 == 0:
                 #test_net(net, test_loader, device)
-
+    """
     test_iter = iter(test_loader)
     x, y = test_iter.next()
     x = x.to(device, dtype=torch.float32)
     y = y.to(device, dtype=torch.float32)
     plot, interval = Test.test(net, x, y)
     wandb.log({'visualization': plot})
-
+    """
     torch.save(net.state_dict(), "model.pkl")
 
     torch.save(net.state_dict(), os.path.join(wandb.run.dir, "model.pkl"))
@@ -135,11 +128,11 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device {device}')
 
-    net = UNet(in_ch=1, out_ch=4)
+    net = UNet(in_ch=1, out_ch=6)
     net.to(device)
 
     try:
-        train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs)
+        train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs, load=True)
     except KeyboardInterrupt:
         try:
             save = input("save?(y/n)")

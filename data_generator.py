@@ -9,7 +9,7 @@ import BaselineWanderRemoval as bwr
 from tqdm import tqdm
 
 import viz
-from utils.data_utils import smooth_signal
+from utils.data_utils import smooth_signal, smooth_label
 
 import torch.utils.data as Data
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
@@ -50,8 +50,53 @@ def load_raw_dataset(raw_dataset):
     X = np.array(X)
     Y = np.array(Y)
 
+    # ()
     X = np.swapaxes(X, 1, 2)
     Y = np.swapaxes(Y, 1, 2)
+
+    return X, Y
+
+def load_raw_dataset_with_onset_offset(raw_dataset):
+    with open(raw_dataset, 'r') as f:
+        data = json.load(f)
+    X = []
+    Y = []
+    for case_id in data.keys():
+        leads = data[case_id]['Leads']
+        x = []
+        y = []
+        for i in range(len(leads_names)):
+            lead_name = leads_names[i]
+            x.append(leads[lead_name]['Signal'])
+
+        signal_len = 5000
+        delineation_tables = leads[leads_names[0]]['DelineationDoc']
+        p_delin = delineation_tables['p']
+        qrs_delin = delineation_tables['qrs']
+        t_delin = delineation_tables['t']
+
+        p_onset, p_offset = get_edge_onset_offset(p_delin, signal_len)
+        qrs_onset, qrs_offset = get_edge_onset_offset(qrs_delin, signal_len)
+        t_onset, t_offset = get_edge_onset_offset(t_delin, signal_len)
+
+        y.append(p_onset)
+        y.append(p_offset)
+        y.append(qrs_onset)
+        y.append(qrs_offset)
+        y.append(t_onset)
+        y.append(t_offset)
+
+        X.append(x)
+        Y.append(y)
+    X = np.array(X)
+    Y = np.array(Y)
+
+    # X(number of signals, 12 leads, signal)
+    X = np.swapaxes(X, 1, 2)
+    # X(number of signals, signal, 12 leads)
+    # Y(number of signals, 6 labels, signal)
+    Y = np.swapaxes(Y, 1, 2)
+    # Y(number of signals, signal, 6 labels)
 
     return X, Y
 
@@ -64,6 +109,14 @@ def get_mask(table, length):
             mask[i] = 1
     return mask
 
+def get_edge_onset_offset(table, length):
+    onset = [0] * length
+    offset = [0] * length
+    for triplet in table:
+        onset[triplet[0]] = 1
+        offset[triplet[2]] = 1
+    return onset, offset
+
 def get_background(p, qrs, t):
     background = np.zeros_like(p)
     for i in range(len(p)):
@@ -71,20 +124,30 @@ def get_background(p, qrs, t):
             background[i]=1
     return background
 
-def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
-    X, Y = load_raw_dataset(raw_dataset)
+def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth_input=True, smooth_target=True, onset_offset=True):
+    if onset_offset:
+        X, Y = load_raw_dataset_with_onset_offset(raw_dataset)
+    else:
+        X, Y = load_raw_dataset(raw_dataset)
+
     if fix_baseline_wander:
         X = baselineWanderRemoval(X, FREQUENCY_OF_DATASET)
 
-    if smooth:
+    if smooth_input:
         smoothed = []
         # number of signals
         for i in range(X.shape[0]):
             # leads
             for j in range(X.shape[2]):
-                smoothed.append(smooth_signal(X[i, :, j]))
-        X = np.array(smoothed)[:, :5000, np.newaxis]
-        
+                X[i, :, j] = smooth_signal(X[i, :, j])[:X.shape[1]]
+
+    if smooth_target:
+        Y = Y.astype(np.float32)
+        # number of signals
+        for i in range(Y.shape[0]):
+            # labels
+            for j in range(Y.shape[2]):
+                Y[i, :, j] = smooth_label(Y[i, :, j], window_len=11)
 
     # data augmentation and modification
     # delete first and last 2 seconds
@@ -100,11 +163,11 @@ def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline
         X = np.reshape(X, (X.shape[0] * X.shape[1], 1, X.shape[2]))
         # (num_input * 12, 1, points)
 
-    # (num_input, points, 4 labels)
+    # (num_input, points, 6 labels)
     Y = np.repeat(Y, repeats=12, axis=0)
-    # (num_input * 12, points, 4 labels)
+    # (num_input * 12, points, 6 labels)
     Y = np.swapaxes(Y, 1, 2)
-    # (num_input * 12, 4 labels, points)
+    # (num_input * 12, 6 labels, points)
 
     X = torch.Tensor(X)
     Y = torch.Tensor(Y)
@@ -145,36 +208,13 @@ def dataset_preprocessing(data, leads_seperate=True, smooth=False):
 
         return data
 
-def smooth_signal(signal, window_len=20, window="hanning"):
-    if signal.ndim != 1:
-        raise ValueError("smooth only accepts 1 dimension arrays.")
-
-    if signal.size < window_len:
-        raise ValueError("Input vector needs to be bigger than window size")
-    
-    if window_len < 3:
-        return signal
-
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError("Window is on of 'flat', 'hamming', 'bartlett', 'blackman'")
-    
-    s=np.r_[signal[window_len-1:0:-1], signal, signal[-2:-window_len-1:-1]]
-    #print(len(s))
-    if window == 'flat': #moving average
-        w=np.ones(window_len,'d')
-    else:
-        w=eval('np.'+window+'(window_len)')
-
-    y=np.convolve(w/w.sum(),s,mode='valid')
-    return y
-
 def preview_data():
-    X, Y = load_raw_dataset(raw_dataset=raw_dataset_path)
-    smooth_signals = []
-    for i in range(X.shape[0]):
+    X, Y = load_raw_dataset_with_onset_offset(raw_dataset=raw_dataset_path)
+    smoothed = []
+    for i in range(Y.shape[2]):
         # lead 2
-        smooth_signals.append(smooth_signal(X[i, :, 1]))
-    viz.signals_plot_all(np.array(smooth_signals))
+        smoothed.append(smooth_label(Y[0, :, i], window_len=11))
+    viz.signals_plot_all(np.array(smoothed), name="label_smooth")
 
 if __name__ == "__main__":
-    preview_data()
+    load_dataset()

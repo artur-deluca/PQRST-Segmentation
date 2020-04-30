@@ -12,22 +12,27 @@ from model import UNet
 from data_generator import dataset_preprocessing
 from audicor_reader.reader import read_IEC
 from utils.val_utils import validation_duration_accuracy
-from utils.data_utils import onset_offset_generator
+from utils.data_utils import onset_offset_generator, signal_get_mask, onset_offset_unsmooth_and_combine
 
 def test(net, x, ground_truth=None):
     net.eval()
     # input size should be (num_of_signals, 1, 500 * seconds)
     with torch.no_grad():
         output = net(x)
-    # output size should be (num_of_signals, 4, 500 * seconds)
+    # output size should be (num_of_signals, 6, 500 * seconds)
+    output = onset_offset_unsmooth_and_combine(output)
+    output = signal_get_mask(output)
     if ground_truth is not None:
+        ground_truth = onset_offset_unsmooth_and_combine(ground_truth)
+        ground_truth = signal_get_mask(ground_truth)
         plot = viz.predict_plotter(x[0][0], output[0], ground_truth[0])
     else:
         plot = viz.predict_plotter(x[0][0], output[0])
 
-    pred_ans = F.one_hot(output.argmax(1), num_classes=4).permute(0, 2, 1)
+    #pred_ans = F.one_hot(output.argmax(1), num_classes=4).permute(0, 2, 1)
 
-    output_onset_offset = onset_offset_generator(pred_ans[:, :3, :])
+    #output_onset_offset = onset_offset_generator(pred_ans[:, :3, :])
+    output_onset_offset = onset_offset_generator(output)
     intervals = validation_duration_accuracy(output_onset_offset)
     return plot, intervals
 
@@ -45,7 +50,7 @@ def test_using_IEC():
             print("file {} does not exist".format("CSE"+str(i).rjust(3, '0')))
     ekg_sig = dataset_preprocessing(ekg_sig, smooth=False)
     ekg_sig = ekg_sig.to('cuda')
-    net = UNet(in_ch=1, out_ch=4)
+    net = UNet(in_ch=1, out_ch=6)
     net.to('cuda')
     net.load_state_dict(torch.load("model.pkl"))
     plot, intervals = test(net, ekg_sig)
