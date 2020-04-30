@@ -42,7 +42,7 @@ def onset_offset_unsmooth_and_combine(sig):
     # 0, 1, 2
     for i in range(out.shape[1]):
         # change onset to -1
-        sig[:, 2 * i, :] = np.where(sig[:, i, :] == 1, -1, 0)
+        sig[:, 2 * i, :] = np.where(sig[:, 2 * i, :] == 1, -1, 0)
         out[:, i, :] = np.sum(sig[:, 2 * i: 2 * (i + 1), :], axis=1)
 
     return out
@@ -76,12 +76,12 @@ def smooth_signal(signal, window_len=20, window="hanning"):
     y=np.convolve(w/w.sum(),s,mode='valid')
     return y
 
-def smooth_label(label, window_len=1, window="gaussian"):
+def smooth_label(label, window_len=21, window="gaussian"):
     if window_len == 1:
         return label
     label = label.astype(np.float32)
     if window=="gaussian":
-        windows = signal.gaussian(window_len, 2)
+        windows = signal.gaussian(window_len, 4)
     for i in range(len(label)):
         if label[i] == 1:
             label[i - (window_len - 1) // 2: i + (window_len + 1) // 2] = windows
@@ -89,7 +89,8 @@ def smooth_label(label, window_len=1, window="gaussian"):
 
 def signal_get_mask(sig):
     # input should be the output of signal_onset_offset_unsmooth_and_combine function
-    # (number_of_signals, 3, signal)
+    # (number_of_signals, 3, signal
+    ret = np.zeros((sig.shape[0], sig.shape[1]+1, sig.shape[2]))
     for i in range(sig.shape[0]):
         for j in range(sig.shape[1]):
             k = 0
@@ -104,4 +105,9 @@ def signal_get_mask(sig):
                         end = k
                         sig[i, j, start:end] = np.ones(end-start)
                 k += 1
-    return sig
+        ret[:, :3, :] = sig
+        for i in range(sig.shape[0]):
+            for j in range(sig.shape[2]):
+                if sig[i, 0, j] == 0 and sig[i, 1, j] == 0 and sig[i, 2, j] == 0:
+                    ret[i, 3, j] = 1
+    return ret

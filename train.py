@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, random_split
 from focalloss import FocalLoss
 
 wandb_config = {
-        "epochs": 200,
+        "epochs": 100,
         "batch_size": 32,
         "lr": 1e-3,
         "focalloss_alpha": 0.25,
@@ -107,14 +107,14 @@ def train(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda'),
 
             #if epoch % 10 == 0:
                 #test_net(net, test_loader, device)
-    """
+    
     test_iter = iter(test_loader)
     x, y = test_iter.next()
     x = x.to(device, dtype=torch.float32)
     y = y.to(device, dtype=torch.float32)
     plot, interval = Test.test(net, x, y)
     wandb.log({'visualization': plot})
-    """
+    
     torch.save(net.state_dict(), "model.pkl")
 
     torch.save(net.state_dict(), os.path.join(wandb.run.dir, "model.pkl"))
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     net.to(device)
 
     try:
-        train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs, load=True)
+        train(net=net, device=device, batch_size=wandb.config.batch_size, lr=wandb.config.lr, epochs=wandb.config.epochs, load=False)
     except KeyboardInterrupt:
         try:
             save = input("save?(y/n)")
