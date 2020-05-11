@@ -26,6 +26,7 @@ class RetinaNet(nn.Module):
         loc_preds = []
         cls_preds = []
         for fm in fms:
+            print(fm.size())
             loc_pred = self.loc_head(fm)
             cls_pred = self.cls_head(fm)
             # (N, 3 * 2, L) -> (N, L, 3 * 2) -> (N, L * 3, 2)

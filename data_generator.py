@@ -111,6 +111,41 @@ def load_dataset(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline
 
     return Data.TensorDataset(X, Y)
 
+def load_dataset_with_origin_length(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
+    X, Y = load_raw_dataset(raw_dataset)
+    if fix_baseline_wander:
+        X = baselineWanderRemoval(X, FREQUENCY_OF_DATASET)
+
+    if smooth:
+        smoothed = []
+        # number of signals
+        for i in range(X.shape[0]):
+            # leads
+            for j in range(X.shape[2]):
+                smoothed.append(smooth_signal(X[i, :, j]))
+        X = np.array(smoothed)[:, :5000, np.newaxis]
+    
+    X, Y = X[:, :4992, :], Y[:, :4992, :]
+    
+    if leads_seperate == True:
+        # (num_input, points, 12 leads)
+        X = np.swapaxes(X, 1, 2)
+        # (num_input, 12 leads, points)
+        X = np.reshape(X, (X.shape[0] * X.shape[1], 1, X.shape[2]))
+        # (num_input * 12, 1, points)
+
+    # (num_input, points, 4 labels)
+    Y = np.repeat(Y, repeats=12, axis=0)
+    # (num_input * 12, points, 4 labels)
+    Y = np.swapaxes(Y, 1, 2)
+    # (num_input * 12, 4 labels, points)
+
+    X = torch.Tensor(X)
+    Y = torch.Tensor(Y)
+
+    return Data.TensorDataset(X, Y)
+
+
 def baselineWanderRemoval(signal, frequency):
     num_data = signal.shape[0]
     num_leads = signal.shape[2]
