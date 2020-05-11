@@ -30,7 +30,7 @@ class FocalLoss(nn.Module):
         pt = p * t + (1 - p) * (1 - t)
         w = alpha * t + (1 - alpha) * (1- t)
         w = w * (1 - pt).pow(gamma)
-        return F.binary_cross_entropy_with_logits(x, t, w.detach(), size_average=False, reduction='sum')
+        return F.binary_cross_entropy_with_logits(x, t, w.detach(), reduction='sum')
 
     def focal_loss_alt(self, x, y):
         alpha = 0.25

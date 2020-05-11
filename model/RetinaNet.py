@@ -1,13 +1,10 @@
 import os, sys
-lib_path = os.path.abspath(os.path.join('..', 'loss'))
-sys.path.append(lib_path)
 
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
 from model.resnet_FPN import ResNet18_FPN
-from loss.FocalLoss import FocalLoss
 
 
 class RetinaNet(nn.Module):

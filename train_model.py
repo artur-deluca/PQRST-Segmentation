@@ -48,8 +48,9 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
             total_loss += loss.item()
             if batch_idx % 20 == 0:
                 print("batch_idx: {}, loc_loss: {}, cls_loss: {}, train_loss: {}, avg_loss: {}".format(batch_idx, loc_loss.item(), cls_loss.item(), loss.item(),total_loss/(batch_idx+1)))
-        eval_model(model, train_as_test_loader)
-        eval_model(model, valloader)
+        if epoch >= 500 and epoch % 100 == 0:
+            eval_model(model, train_as_test_loader)
+            eval_model(model, valloader)
 
 
 def eval_model(model, dataloader):
