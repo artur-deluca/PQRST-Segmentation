@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, random_split
 from focalloss import FocalLoss
 
 wandb_config = {
-        "epochs": 50,
+        "epochs": 200,
         "batch_size": 32,
         "lr": 1e-4,
         "focalloss_alpha": 0.25,
