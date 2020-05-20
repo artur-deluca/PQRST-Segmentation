@@ -64,10 +64,12 @@ class FPN(nn.Module):
         self.lateral_layer1 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=1, padding=0)
         self.lateral_layer2 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=1, padding=0)
         self.lateral_layer3 = nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1, padding=0)
+        self.lateral_layer4 = nn.Conv1d(in_channels=64, out_channels=256, kernel_size=1, padding=0)
 
         # smooth layers
         self.smooth1 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
         self.smooth2 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+        self.smooth3 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         # only first layer need to downsample input length
@@ -102,6 +104,8 @@ class FPN(nn.Module):
         p4 = self.smooth1(p4)
         p3 = self._upsample_add(p4, self.lateral_layer3(c3))
         p3 = self.smooth2(p3)
+        #p2 = self._upsample_add(p3, self.lateral_layer4(c2))
+        #p2 = self.smooth3(p2)
 
         return p3, p4, p5, p6
 

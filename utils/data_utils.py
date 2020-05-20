@@ -3,6 +3,8 @@ import torch
 import json
 
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
+start_point = 516
+end_point = 4484
 
 def load_raw_dataset(raw_dataset):
     """
@@ -28,7 +30,7 @@ def load_raw_dataset(raw_dataset):
         label = []
         for i in range(len(leads_names)):
             lead_name = leads_names[i]
-            x.append(leads[lead_name]['Signal'][:4992])
+            x.append(leads[lead_name]['Signal'][start_point:end_point])
 
             delineation_tables = leads[leads_names[0]]['DelineationDoc']
             
@@ -66,8 +68,10 @@ def get_bbox_labels(delineation, label):
     for obj in delineation:
         xmin = obj[0]
         xmax = obj[2]
-        bboxes.append((xmin, xmax))
-        labels.append(label)
+        if xmin >= start_point and xmax < end_point:
+            bboxes.append((xmin - start_point, xmax - start_point))
+            labels.append(label)
+
     return bboxes, labels
 
 def onset_offset_generator(sig):
@@ -85,7 +89,7 @@ def onset_offset_generator(sig):
 
     return onset_offset
 
-def box_to_sig_generator(xmin, xmax, labels, sig_length):
+def box_to_sig_generator(xmin, xmax, labels, sig_length, background=True):
     """
     Args:
         xmin: (tensor) with sized [#obj]
@@ -99,8 +103,12 @@ def box_to_sig_generator(xmin, xmax, labels, sig_length):
     xmax = xmax.long()
     labels = labels.long()
     sig = torch.zeros(1, 4, sig_length)
-    for i in range(len(labels)):
-        sig[0, labels[i], xmin[i]:xmax[i]] = 1
+    if background:
+        for i in range(len(labels)):
+            sig[0, labels[i], xmin[i]:xmax[i]] = 1
+    else:
+        for i in range(len(labels)):
+            sig[0, labels[i]+1, xmin[i]:xmax[i]] = 1
     return sig
 
 def smooth_signal(signal, window_len=20, window="hanning"):
@@ -171,7 +179,7 @@ def box_iou(box1, box2, order='xx'):
 
     left = torch.max(box1[:, None, 0], box2[:, 0]) # [N, M]
     right = torch.min(box1[:, None, 1], box2[:, 1]) # [N, M]
-    
+
     inter_length = (right - left + 1).clamp(min=0) # [N, M]
 
     left = torch.min(box1[:, None, 0], box2[:, 0])
@@ -186,7 +194,7 @@ def box_nms(bboxes, scores, threshold=0.5, mode='union'):
     Non maximum suppression
 
     Args:
-        bboxes: (tensor) bounding boxes, sized [N, 4]
+        bboxes: (tensor) bounding boxes, sized [N, 2]
         scores: (tensor) bbox scores, szied [N, ]
         threshold: (float) overlap threshold
         mode: (str) 'union' or 'min'

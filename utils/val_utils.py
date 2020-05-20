@@ -4,7 +4,7 @@ import torch
 def validation_accuracy(pred_onset_offset, gt_onset_offset):
     # (batch_size, 4, seconds) only first 3 channels will be used
 
-    tol = 15
+    tol = 30
 
     TP = 0
     FP = 0
