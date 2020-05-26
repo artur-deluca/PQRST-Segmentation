@@ -8,39 +8,45 @@ from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_h
 from utils.val_utils import validation_accuracy
 import viz
 import os
+import wandb
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+torch.cuda.empty_cache()
 
-config = {
-    'batch_size': 128,
-    'lr': 0.001,
-    'epochs': 5000
+wandb_config = {
+    "batch_size": 128,
+    "lr": 0.001,
+    "epochs": 5000
 }
-
 
 def train_model(val_ratio=0.2, test_ratio=0.2):
     model = RetinaNet(3)
     model = nn.DataParallel(model).cuda()
     model.train()
 
+    wandb.watch(model)
+
     ds = BBoxDataset()
     test_len = int(len(ds) * test_ratio)
     val_len = int(len(ds) * val_ratio)
     train_len = len(ds) - test_len - val_len
     trainingset, valset, testset = torch.utils.data.random_split(ds, [train_len, val_len, test_len])
-    trainloader = torch.utils.data.DataLoader(trainingset, batch_size=config['batch_size'], shuffle=True, collate_fn=ds.collate_fn)
-    train_as_test_loader = torch.utils.data.DataLoader(trainingset, batch_size=1, shuffle=True, collate_fn=ds.collate_fn)
-    valloader = torch.utils.data.DataLoader(valset, batch_size=1, shuffle=True, collate_fn=ds.collate_fn)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=config['batch_size'], shuffle=True, collate_fn=ds.collate_fn)
+    trainloader = torch.utils.data.DataLoader(trainingset, batch_size=wandb.config.batch_size, shuffle=True, collate_fn=ds.collate_fn)
+    valloader = torch.utils.data.DataLoader(valset, batch_size=wandb.config.batch_size, shuffle=True, collate_fn=ds.collate_fn)
+    #testloader = torch.utils.data.DataLoader(testset, batch_size=wandb.config.batch_size, shuffle=True, collate_fn=ds.collate_fn)
     
     #optimizer = torch.optim.SGD(params=model.parameters(), lr=config['lr'])
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=config['lr'])
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=wandb.config.lr)
     criterion = FocalLoss()
 
-    for epoch in range(config['epochs']):
+    best_F1 = 0
+
+    for epoch in range(wandb.config.epochs):
         model.train()
+        total_loc_loss = 0
+        total_cls_loss = 0
         total_loss = 0
-        for batch_idx, (inputs, loc_targets, cls_targets) in enumerate(trainloader):
+        for batch_idx, (inputs, loc_targets, cls_targets, boxes, labels) in enumerate(trainloader):
             inputs = torch.autograd.Variable(inputs.cuda())
             loc_targets = torch.autograd.Variable(loc_targets.cuda())
             cls_targets = torch.autograd.Variable(cls_targets.cuda())
@@ -53,12 +59,18 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
             loss = loc_loss + cls_loss
             loss.backward()
             optimizer.step()
+            total_loc_loss += loc_loss.item()
+            total_cls_loss += cls_loss.item()
             total_loss += loss.item()
-            if batch_idx % 20 == 0:
-                print("batch_idx: {}, loc_loss: {}, cls_loss: {}, train_loss: {}, avg_loss: {}".format(batch_idx, loc_loss.item(), cls_loss.item(), loss.item(),total_loss/(batch_idx+1)))
+        
+        print("epoch: {}, loc_loss: {}, cls_loss: {}, total_loss: {}".format(epoch, total_loc_loss, total_cls_loss, total_loss))
+        wandb.log({"epoch": epoch, "loc_loss": total_loc_loss, "cls_loss": total_cls_loss, "total_loss": total_loss})
 
-        if epoch % 10 == 0:
-            eval_model(model, valloader)
+        if epoch % 1 == 0:
+            Se, PPV, F1 = eval_model(model, valloader)
+            if F1 > best_F1:
+                best_F1 = F1
+                torch.save(model.module.state_dict(), "weights/retinanet_best.pkl")
 
 
 def eval_model(model, dataloader):
@@ -68,7 +80,8 @@ def eval_model(model, dataloader):
     pred_sigs = []
     gt_sigs = []
     sigs = []
-    for batch_idx, (inputs, loc_targets, cls_targets) in enumerate(dataloader):
+    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels) in enumerate(dataloader):
+        batch_size = inputs.size(0)
         inputs = torch.autograd.Variable(inputs.cuda())
         loc_targets = torch.autograd.Variable(loc_targets.cuda())
         cls_targets = torch.autograd.Variable(cls_targets.cuda())
@@ -82,33 +95,38 @@ def eval_model(model, dataloader):
 
         loc_targets = loc_targets.data.squeeze().type(torch.FloatTensor)
         cls_targets = cls_targets.data.squeeze().type(torch.LongTensor)
+
         #if batch_idx == 0:
             #print(cls_targets)
         # decoder only process data 1 by 1.
         encoder = DataEncoder()
-        boxes, labels, sco, is_found = encoder.decode(loc_preds, cls_preds, input_length)
+        for i in range(batch_size):
+            boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length)
 
-        gt_boxes, gt_labels, gt_sco, gt_is_found = encoder.decode(loc_targets, one_hot_embedding(cls_targets, 4), input_length)
-        if is_found:
-            boxes = boxes.ceil()
-            xmin = boxes[:, 0].clamp(min = 1)
-            xmax = boxes[:, 1].clamp(max = input_length - 1)
+        #ground truth decode using another method
+            gt_boxes_tensor = torch.tensor(gt_boxes[i])
+            gt_labels_tensor = torch.tensor(gt_labels[i])
+            xmin = gt_boxes_tensor[:, 0].clamp(min=1)
+            xmax = gt_boxes_tensor[:, 1].clamp(max=input_length - 1)
+            gt_sig = box_to_sig_generator(xmin, xmax, gt_labels_tensor, input_length, background=False)
+            
+            if is_found:
+                boxes = boxes.ceil()
+                xmin = boxes[:, 0].clamp(min = 1)
+                xmax = boxes[:, 1].clamp(max = input_length - 1)
 
-            # there is no background anchor on predict labels
-            pred_sig = box_to_sig_generator(xmin, xmax, labels, input_length, background=False)
-        else:
-            pred_sig = torch.zeros(1, 4, input_length)
-        gt_sig = box_to_sig_generator(gt_boxes[:, 0], gt_boxes[:, 1], gt_labels, input_length)
-        #if batch_idx == 0:
-            #print(gt_boxes)
-            #print(gt_labels)
-        pred_sigs.append(pred_sig)
-        gt_sigs.append(gt_sig)
+                # there is no background anchor on predict labels
+                pred_sig = box_to_sig_generator(xmin, xmax, labels, input_length, background=False)
+            else:
+                pred_sig = torch.zeros(1, 4, input_length)
+
+            pred_sigs.append(pred_sig)
+            gt_sigs.append(gt_sig)
     sigs = torch.cat(sigs, 0)
     pred_signals = torch.cat(pred_sigs, 0)
     gt_signals = torch.cat(gt_sigs, 0)
     plot = viz.predict_plotter(sigs[0][0], pred_signals[0], gt_signals[0])
-    plot.savefig("test.png")
+    wandb.log({"visualization": plot})
     pred_onset_offset = onset_offset_generator(pred_signals)
     gt_onset_offset = onset_offset_generator(gt_signals)
     TP, FP, FN = validation_accuracy(pred_onset_offset, gt_onset_offset)
@@ -118,6 +136,11 @@ def eval_model(model, dataloader):
     F1 = 2 * Se * PPV / (Se + PPV)
 
     print("Se: {} PPV: {} F1 score: {}".format(Se, PPV, F1))
+    wandb.log({"Se": Se, "PPV": PPV, "F1": F1})
+    
+    return Se, PPV, F1
 
+ex = wandb.init(project="PQRST-segmentation")
+ex.config.setdefaults(wandb_config)
 
 train_model()

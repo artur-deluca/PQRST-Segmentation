@@ -131,9 +131,9 @@ def dataset_preprocessing(data, leads_seperate=True, smooth=False):
     if smooth:
         smoothed = []
         for i in range(data.shape[0]):
-            smoothed.append(smooth_signal(data[i, 0, :]))
+            smoothed.append(smooth_signal(data[i, 0, :], window_len=10))
 
-        smoothed = np.array(smoothed)[:, np.newaxis, :5008]
+        smoothed = np.array(smoothed)[:, np.newaxis, :4992]
         smoothed = torch.Tensor(smoothed)
 
         return smoothed

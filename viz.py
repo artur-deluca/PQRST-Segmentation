@@ -1,9 +1,10 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from matplotlib.collections import LineCollection
 
-def predict_plotter(x, pred, y=None):
+def predict_plotter(x, pred, y=None, name="test"):
     x = x.detach().cpu().numpy()
     pred = pred.detach().cpu().numpy()
 
@@ -44,7 +45,7 @@ def predict_plotter(x, pred, y=None):
             xx, yy = zip(line[0], line[1])
             ax1.plot(xx, yy, color=color_table_pred[index])
 
-    plt.savefig("./out_pic/test.png")
+    plt.savefig(os.path.join("./out_pic", name+".png"))
 
     return plt
 
