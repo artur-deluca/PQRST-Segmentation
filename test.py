@@ -15,9 +15,9 @@ from model.RetinaNet import RetinaNet
 from data_generator import dataset_preprocessing
 from audicor_reader.reader import read_IEC
 from utils.val_utils import validation_duration_accuracy
-from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_hot_embedding
+from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_hot_embedding, normalize
 from data.encoder import DataEncoder
-torch.set_printoptions(threshold=100000)
+#torch.set_printoptions(threshold=100000)
 def test(net, x, ground_truth=None):
     net.eval()
     # input size should be (num_of_signals, 1, 500 * seconds)
@@ -102,7 +102,7 @@ def test_retinanet(net, x, input_length, ground_truth=None):
     pred_sigs = []
     gt_sigs = []
     for i in range(batch_size):
-        boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length, CLS_THRESH=0.1, NMS_THRESH=0.7)
+        boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length, CLS_THRESH=0.5, NMS_THRESH=0.5)
         if is_found:
             boxes = boxes.ceil()
             xmin = boxes[:, 0].clamp(min = 1)
@@ -137,7 +137,14 @@ def test_retinanet(net, x, input_length, ground_truth=None):
     return plot, intervals
 
 def test_retinanet_using_IEC():
-    tol = 15
+    tol_pd = 10
+    tol_pri = 10
+    tol_qrsd = 6
+    tol_qt = 12
+    tol_std_pd = 8
+    tol_std_pri = 8
+    tol_std_qrsd = 5
+    tol_std_qt = 10
     # (num of ekg signal, length, 1)
     ekg_sig = []
     for i in range(1, 126):
@@ -148,32 +155,37 @@ def test_retinanet_using_IEC():
             ekg_sig.append(sig)
         except IOError:
             print("file {} does not exist".format("CSE"+str(i).rjust(3, '0')))
-    ekg_sig = dataset_preprocessing(ekg_sig, smooth=False)
+    ekg_sig = dataset_preprocessing(ekg_sig, smooth=True)
     ekg_sig = ekg_sig.to('cuda')
+    ekg_sig = normalize(ekg_sig, instance=True)
 
     net = RetinaNet(3).cuda()
     net.load_state_dict(torch.load("weights/retinanet_best.pkl"))
     plot, intervals = test_retinanet(net, ekg_sig, 4992)
 
-    table = []
+    table_mean = []
+    table_var = []
     for i in range(len(intervals)):
         temp = [i, intervals[i]["p_duration"]["mean"], intervals[i]["pq_interval"]["mean"], intervals[i]["qrs_duration"]["mean"], intervals[i]["qt_interval"]["mean"]]
-        table.append(temp)
+        table_mean.append(temp)
+        temp = [i, intervals[i]["p_duration"]["var"], intervals[i]["pq_interval"]["var"], intervals[i]["qrs_duration"]["var"], intervals[i]["qt_interval"]["var"]]
+        table_var.append(temp)
 
     wandb.log({'viz': plot})
-    wandb.log({"table": wandb.Table(data=table, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
+    wandb.log({"table_mean": wandb.Table(data=table_mean, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
+    wandb.log({"table_var": wandb.Table(data=table_var, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
 
     correct = np.zeros(4)
     total = np.zeros(4)
     df = pd.read_excel("/home/Wr1t3R/PQRST/unet/data/CSE_Multilead_Library_Interval_Measurements_Reference_Values.xls", sheet_name=1, header=1)
     for i in range(len(intervals)):
-        if abs(table[i][1] - df["P-duration"][i]) < tol:
+        if abs(table_mean[i][1] - df["P-duration"][i]) <= tol_pd:# and table_var[i][1] <= tol_std_pd ** 2:
             correct[0] += 1
-        if abs(table[i][2] - df["PQ-interval"][i]) < tol:
+        if abs(table_mean[i][2] - df["PQ-interval"][i]) <= tol_pri:# and table_var[i][2] <= tol_std_pri ** 2:
             correct[1] += 1
-        if abs(table[i][3] - df["QRS-duration"][i]) < tol:
+        if abs(table_mean[i][3] - df["QRS-duration"][i]) <= tol_qrsd:# and table_var[i][3] <= tol_std_qrsd ** 2:
             correct[2] += 1
-        if abs(table[i][4] - df["QT-interval"][i]) < tol:
+        if abs(table_mean[i][4] - df["QT-interval"][i]) <= tol_qt:# and table_var[i][4] <= tol_std_qt ** 2:
             correct[3] += 1
         total += 1
     print(correct / total)

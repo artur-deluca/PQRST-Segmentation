@@ -11,7 +11,6 @@ import os
 import wandb
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
-torch.cuda.empty_cache()
 
 wandb_config = {
     "batch_size": 128,
@@ -96,8 +95,6 @@ def eval_model(model, dataloader):
         loc_targets = loc_targets.data.squeeze().type(torch.FloatTensor)
         cls_targets = cls_targets.data.squeeze().type(torch.LongTensor)
 
-        #if batch_idx == 0:
-            #print(cls_targets)
         # decoder only process data 1 by 1.
         encoder = DataEncoder()
         for i in range(batch_size):

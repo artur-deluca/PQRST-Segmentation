@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+np.set_printoptions(threshold=100000)
 def validation_accuracy(pred_onset_offset, gt_onset_offset):
     # (batch_size, 4, seconds) only first 3 channels will be used
 
@@ -63,15 +63,14 @@ def validation_duration_accuracy(onset_offset):
     qrs duration: between -2 and 2
     qt interval: between -2 and 3
     """
-    p_duration = []
-    pq_interval = []
-    qrs_duration = []
-    qt_interval = []
-
     # test data should be (data_size, means and vars)
     output = []
     # Note: if there's missing segments then the value should be... 0?
     for i in range(one.shape[0]):
+        p_duration = []
+        pq_interval = []
+        qrs_duration = []
+        qt_interval = []
         j = 0
         while j < one.shape[1]:
             temp_p = 0
@@ -86,6 +85,7 @@ def validation_duration_accuracy(onset_offset):
                     temp_pq += 1
                 if j < one.shape[1] and one[i, j] == 1:
                     p_duration.append(temp_p * 2)
+                    temp_pq += 1
                     j += 1
                 while j < one.shape[1] and one[i, j] == 0:
                     j += 1
@@ -102,6 +102,7 @@ def validation_duration_accuracy(onset_offset):
                     j += 1
                 if j < one.shape[1] and one[i, j] == 2:
                     qrs_duration.append(temp_qrs * 2)
+                    temp_qt += 1
                     j += 1
                 # -2...2...-3...3
                 while j < one.shape[1] and (one[i, j] == 0 or one[i, j] == -3):
@@ -131,8 +132,4 @@ def validation_duration_accuracy(onset_offset):
             }
         }
         output.append(ret)
-        p_duration = []
-        pq_interval = []
-        qrs_duraiton = []
-        qt_interval = []
     return output

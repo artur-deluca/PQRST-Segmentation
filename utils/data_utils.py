@@ -247,3 +247,18 @@ def one_hot_embedding(labels, num_classes):
     """
     y = torch.eye(num_classes)  # [D, D]
     return y[labels]  # [N, D]
+
+def normalize(signals, instance=True):
+    """
+    Args:
+        signals: (List) with sized [batch_size, leads, amplitude]
+        instance: (bool) True means normalize using signals's own means and stds. False means using whole training data means and stds.
+    """
+    if instance:
+        mean = signals.mean(-1).unsqueeze(-1).expand_as(signals)
+        std = signals.std(-1).unsqueeze(-1).expand_as(signals)
+        return (signals - mean) / std
+    else:
+        mean = signals.mean().unsqueeze(-1).unsqueeze(-1).expand_as(signals)
+        std = signals.std().unsqueeze(-1).unsqueeze(-1).expand_as(signals)
+        return (signals - mean) / std
