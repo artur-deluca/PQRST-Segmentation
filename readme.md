@@ -1,6 +1,6 @@
-# PQRST Segmentation usisng UNet
+# PQRST Segmentation using UNet
 This is a project that can segment a EKG signal to P-wave, QRS-wave, and T-wave parts.  
-First version is using UNet like Neural Network which is the implemntation of this paper: [Deep Learning for ECG Segmentation](https://arxiv.org/pdf/2001.04689.pdf) 
+First version is using UNet like Neural Network which is the implementation of this paper: [Deep Learning for ECG Segmentation](https://arxiv.org/pdf/2001.04689.pdf) 
 
 ## Data Preprocessing
 ### Training

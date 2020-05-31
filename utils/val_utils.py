@@ -6,6 +6,16 @@ from utils.viz_utils import predict_plotter
 import wandb
 
 def validation_accuracy(pred_onset_offset, gt_onset_offset):
+    """
+    Args:
+        pred_onset_offset:  (Tensor) with sized [batch_size, #channels, signal length]
+        gt_onset_offset:    (Tensor) with sized [batch_size, #channels, signal length]
+
+    Returns:
+        TP: (int) True positive
+        FP: (int) False positive
+        FN: (int) False negetive
+    """
     # (batch_size, 4, seconds) only first 3 channels will be used
 
     tol = 30
@@ -53,6 +63,13 @@ def validation_accuracy(pred_onset_offset, gt_onset_offset):
     return TP, FP, FN
 
 def validation_duration_accuracy(onset_offset):
+    """
+    Args:
+        onset_offset: (Tensor) with sized [batch_size, #channels=4, signal length]
+    
+    Returns:
+        output: (list of dict) with sized [batch_size], see below for detail dict structure
+    """
     # (batch_size, 4, seconds) only first 3 channels will be used.
     # need to merge 3 segments to 1
     onset_offset[:,1,:] *= 2
@@ -139,6 +156,19 @@ def validation_duration_accuracy(onset_offset):
     return output
 
 def eval_unet(net, loader, device):
+    """
+    Args:
+        net:    (nn.Module) UNet module variable
+        loader: (DataLoader) validation dataloader
+        device: (str) using GPU or CPU
+    Returns:
+        average loss:   (float) average loss within validation set
+        pointwise acc:  (float) pointwise evaluation
+        Se:             (float) TP / (TP + FN)
+        PPV:            (float) TP / (TP + FP)
+        F1:             (float) 2 * Se * PPV / (Se + PPV)
+        ret:            (list of dict) see validation_duration_accuracy for more detail
+    """
     net.eval()
     n_val = len(loader)
     tot = 0
@@ -183,6 +213,16 @@ def eval_unet(net, loader, device):
 
 
 def eval_retinanet(model, dataloader):
+    """
+    Args:
+        model:      (nn.Module) RetinaNet module variable
+        dataloader: (DataLoader) validation dataloader
+        
+    Returns:
+        Se:     (float) TP / (TP + FN)
+        PPV:    (float) TP / (TP + FP)
+        F1:     (float) 2 * Se * PPV / (Se + PPV)
+    """
     input_length = 3968
     model.eval()
     

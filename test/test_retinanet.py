@@ -13,11 +13,15 @@ from data.encoder import DataEncoder
 
 def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     """
-    Params:
-        net: (nn.Module) RetinaNet model
-        x: (Tensor) with sized [#signals, 1 lead, values]
-        input_length: (int) input length must dividable by 64
-        ground_truth: (Tensor) with sized [batch_size, #anchors, 2]
+    Args:
+        net:            (nn.Module) RetinaNet model
+        x:              (Tensor) with sized [#signals, 1 lead, values]
+        input_length:   (int) input length must dividable by 64
+        ground_truth:   (Tensor) with sized [batch_size, #anchors, 2]
+
+    Returns:
+        plot:       (pyplot) pyplot object
+        interval:   (list of dict) with sized [#signals], for more info about dict structure, you can see utils.val_utils.validation_duration_accuracy.
     """
     net.eval()
     loc_preds, cls_preds = net(x)
@@ -71,6 +75,12 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     return plot, intervals
 
 def test_retinanet_using_IEC(net):
+    """
+    Args:
+        net: (nn.Module) retinanet model variable.
+    Returns:
+        result: (list) with sized [4]. IEC standard accuracy evaluate using retinanet.
+    """
     tol_pd = 10
     tol_pri = 10
     tol_qrsd = 6

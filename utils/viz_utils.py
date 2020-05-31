@@ -5,6 +5,14 @@ import torch
 from matplotlib.collections import LineCollection
 
 def predict_plotter(x, pred, y=None, name="test"):
+    """
+    Args:
+        x:      (Tensor) input signals with sized [signal length]
+        pred:   (Tensor) predict labels with sized [#channels, signal length]
+        y:      (Tensor) ground truth labels with sized [#channels, signal length]
+    Return:
+        plt:    (pyplot) pyplot object
+    """
     x = x.detach().cpu().numpy()
     pred = pred.detach().cpu().numpy()
 
@@ -50,7 +58,9 @@ def predict_plotter(x, pred, y=None, name="test"):
     return plt
 
 def signals_plot_all(signals):
-    """signals(number_of_signals, signal)
+    """
+    Args:
+        signals: (Tensor) with sized [#signals, signal length]
     """
     for i in range(signals.shape[0]):
         plt.close('all')

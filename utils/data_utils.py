@@ -19,7 +19,7 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
         raw_dataset: (string) dataset path
     
     Returns:
-        X: (list) input signals with sized [#subjects, #leads, signal_length=5000]
+        X:      (list) input signals with sized [#subjects, #leads, signal_length=5000]
         BBoxes: (list) target bboxes with sized [#subjects, #leads, #objs, 2]
         Labels: (list) target labels with sized [#subjects, #leads, #objs] 
     """
@@ -64,6 +64,7 @@ def get_bbox_labels(delineation, label):
     """
     Args: 
         delineation: (list) sized [#obj, 3], 3 indicates onset, peak, offset
+
     Returns:
         bboxes: (list) with sized [#obj, 2], 2 indicates (xmin, xmax)
         labels: (list) with sized [#obj]
@@ -81,8 +82,11 @@ def get_bbox_labels(delineation, label):
 
 def onset_offset_generator(sig):
     """
-    :signal type: tensor
-    :return type: numpy array
+    Args:
+        signal: (Tensor) with sized [batch_size, #channels, signal length]
+
+    Returns:
+        onset_offset: (Array) with sized [batch_size, #channels, signal length]
     """
     sig = sig.cpu().numpy()
     # sig(batch_size, 4, seconds)
@@ -97,12 +101,13 @@ def onset_offset_generator(sig):
 def box_to_sig_generator(xmin, xmax, labels, sig_length, background=True):
     """
     Args:
-        xmin: (tensor) with sized [#obj]
-        xmax: (tensor) with sized [#obj]
-        labels: (tensor) with sized [#obj]
+        xmin:       (Tensor) with sized [#obj]
+        xmax:       (Tensor) with sized [#obj]
+        labels:     (Tensor) with sized [#obj]
         sig_length: (int) signal length
+
     Returns:
-        sig: (tensor) with sized [1, 4, sig_length]
+        sig: (Tensor) with sized [1, 4, sig_length]
     """
     xmin = xmin.long()
     xmax = xmax.long()
@@ -118,9 +123,13 @@ def box_to_sig_generator(xmin, xmax, labels, sig_length, background=True):
 
 def smooth_signal(signal, window_len=20, window="hanning"):
     """
-    :signal type: numpy array
-    :window choise: "hanning", "flat", "hamming", "bartlett", "blackman"
-    "return type: numpy array
+    Args:
+        signal:     (Array) with sized [signal length]
+        window_len: (int) window averaging's window size
+        window:     (str) choise of window type: {"hanning", "flat", "hamming", "barlett", "blackman"}
+
+    Returns:
+        y: (Array) with sized [signal length]
     """
     if signal.ndim != 1:
         raise ValueError("smooth only accepts 1 dimension arrays.")
@@ -148,11 +157,11 @@ def change_box_order(boxes, order):
     """change box order between (x_min, x_max) and (x_center, length)
 
     Args:
-        boxes: (tensor) bounding boxes, sized [N, 2]
-        order: (str) either 'xx2xl' or 'xl2xx'
+        boxes:  (Tensor) bounding boxes, sized [N, 2]
+        order:  (str) either 'xx2xl' or 'xl2xx'
     
     Returns:
-        (tensor) converted bounding boxes, sized [N, 2]
+                (Tensor) converted bounding boxes, sized [N, 2]
     """
     assert order in ['xx2xl', 'xl2xx']
     a = boxes[:, :1]
@@ -167,12 +176,12 @@ def box_iou(box1, box2, order='xx'):
     The default box order is (xmin, xmax)
 
     Args:
-        box1: (tensor) bounding boxes, sized [N, 2]
-        box2: (tensor) bounding boxes, sized [M, 2]
-        order: (str) box order, either 'xx' or 'xl'
+        box1:   (Tensor) bounding boxes, sized [N, 2]
+        box2:   (Tensor) bounding boxes, sized [M, 2]
+        order:  (str) box order, either 'xx' or 'xl'
     
     Returns:
-        (tensor) iou, sized[N, M]
+                (Tensor) iou, sized[N, M]
     """
 
     if order == 'xl':
@@ -199,13 +208,14 @@ def box_nms(bboxes, scores, threshold=0.5, mode='union'):
     Non maximum suppression
 
     Args:
-        bboxes: (tensor) bounding boxes, sized [N, 2]
-        scores: (tensor) bbox scores, szied [N, ]
-        threshold: (float) overlap threshold
-        mode: (str) 'union' or 'min'
+        bboxes:     (Tensor) bounding boxes, sized [N, 2]
+        scores:     (Tensor) bbox scores, szied [N, ]
+        threshold:  (float) overlap threshold
+        mode:       (str) 'union' or 'min'
 
     Returns:
-        keep: (tensor) selected indices
+        keep:   (Tensor) selected indices
+        sco:    (Tensor) selected scores
     """
     x1 = bboxes[:, 0]
     x2 = bboxes[:, 1]
@@ -244,11 +254,13 @@ def box_nms(bboxes, scores, threshold=0.5, mode='union'):
 def one_hot_embedding(labels, num_classes):
     """
     Embedding labels to one-hot form.
+
     Args:
-    :param labels: (LongTensor) class label, sized [N,].
-    :param num_classes: (int) number of classes.
-    :return:
-            (tensor) encoded labels, size [N, #classes].
+        labels:         (LongTensor) class label, sized [N,].
+        num_classes:    (int) number of classes.
+    
+    Returns:
+                        (Tensor) encoded labels, size [N, #classes].
     """
     y = torch.eye(num_classes)  # [D, D]
     return y[labels]  # [N, D]
@@ -256,8 +268,11 @@ def one_hot_embedding(labels, num_classes):
 def normalize(signals, instance=True):
     """
     Args:
-        signals: (List) with sized [batch_size, leads, amplitude]
-        instance: (bool) True means normalize using signals's own means and stds. False means using whole training data means and stds.
+        signals:    (List) with sized [batch_size, #leads, signal length]
+        instance:   (bool) True means normalize using signals's own means and stds. False means using whole training data means and stds.
+    
+    Returns:
+                    (List) with sized [batch_size, #leads, signal length]
     """
     if instance:
         mean = signals.mean(-1).unsqueeze(-1).expand_as(signals)
@@ -308,6 +323,13 @@ def ekg_denoise(data, number_channels=None):
 
 
 def load_raw_dataset_and_pointwise_labels(raw_dataset):
+    """
+    Args:
+        raw_dataset: (str) raw dataset path
+    Returns:
+        X: (Array) with sized [#subjects, #leads, signal length]
+        Y: (Array) with sized [#subjects, #channels=4, signal length]
+    """
     with open(raw_dataset, 'r') as f:
         data = json.load(f)
     X = []
@@ -364,6 +386,17 @@ def get_background(p, qrs, t):
 
 
 def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
+    """
+    Args:
+        raw_dataset:            (str) raw dataset path
+        leads_seperate:         (bool) True if all leads are look as different subjects
+        fix_baseline_wander:    (bool) True if preprocessing using baseline wander removal
+        smooth:                 (bool) True if preprocessing using window averaging smoothing method
+    
+    Returns:
+                                (TensorDataset) with inputs and ground truth [X, Y]
+    """
+
     X, Y = load_raw_dataset(raw_dataset)
     """
     # maintenance
@@ -407,6 +440,16 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
 
 # this function is used to preprocess the IEC signal
 def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True):
+    """
+    Args:
+        data:           (Array) with sized [#signals, signal length, #leads]
+        leads_seperate: (bool) True if all leads are look as different subjects' signals
+        smooth:         (bool) True if preprocessing using window averaging smoothing method
+        dns:            (bool) True if preprocessing using ekg denoise method
+    
+    Returns:
+        data: (Tensor) with sized [#signals * #leads, 1, signal length] if leads_seperate==True
+    """
     # (# of data, points, leads)
     data = np.swapaxes(data, 1, 2)
     # (# of data, leads, points)

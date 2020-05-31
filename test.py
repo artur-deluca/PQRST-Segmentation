@@ -23,6 +23,7 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load("weights/unet_best.pkl"))
         result = test_unet.test_unet_using_IEC(net)
     else:
+        # default using retinanet to test
         net = RetinaNet(num_classes).cuda()
         net.load_state_dict(torch.load("weights/retinanet_best.pkl"))
         result = test_retinanet.test_retinanet_using_IEC(net)
