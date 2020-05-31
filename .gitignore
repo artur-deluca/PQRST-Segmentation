@@ -1,5 +1,8 @@
 *.pkl
+*.yaml
 data
 wandb
 audicor_reader
 out_pic
+weights
+.ipynb_checkpoints

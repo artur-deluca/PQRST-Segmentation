@@ -50,7 +50,8 @@ def predict_plotter(x, pred, y=None, name="test"):
     return plt
 
 def signals_plot_all(signals):
-    # signals(number_of_signals, signal)
+    """signals(number_of_signals, signal)
+    """
     for i in range(signals.shape[0]):
         plt.close('all')
         plt.plot(range(signals.shape[1]), signals[i])

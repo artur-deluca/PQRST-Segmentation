@@ -23,6 +23,7 @@ tensorflow = "*"
 keras = "*"
 xlrd = "*"
 baselinewanderremoval = "*"
+jupyterlab = "*"
 
 [requires]
 python_version = "3.6"

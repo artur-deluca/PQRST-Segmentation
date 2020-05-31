@@ -1,8 +1,6 @@
 import os, sys
-
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 from model.resnet_FPN import ResNet18_FPN
 

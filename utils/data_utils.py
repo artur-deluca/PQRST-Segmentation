@@ -1,12 +1,17 @@
 import numpy as np
 import torch
 import json
+import pywt
+from scipy.signal import medfilt
+import multiprocessing as mp
 
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
+FREQUENCY_OF_DATASET = 500
 start_point = 516
 end_point = 4484
+raw_dataset_path = "/home/Wr1t3R/PQRST/unet/data/ecg_data_200.json"
 
-def load_raw_dataset(raw_dataset):
+def load_raw_dataset_and_bbox_labels(raw_dataset):
     """
     Get raw dataset with signals, bboxes and labels
     
@@ -262,3 +267,179 @@ def normalize(signals, instance=True):
         mean = signals.mean().unsqueeze(-1).unsqueeze(-1).expand_as(signals)
         std = signals.std().unsqueeze(-1).unsqueeze(-1).expand_as(signals)
         return (signals - mean) / std
+
+def wavelet_threshold(data, wavelet='sym8', noiseSigma=14):
+    levels = int(np.floor(np.log2(data.shape[0])))
+    WC = pywt.wavedec(data,wavelet,level=levels)
+    threshold=noiseSigma*np.sqrt(2*np.log2(data.size))
+    NWC = list(map(lambda x: pywt.threshold(x,threshold, mode='soft'), WC))
+    return pywt.waverec(NWC, wavelet)
+
+def baseline_wander_removal(data):
+    baseline = medfilt(data, 201)
+    baseline = medfilt(baseline, 601)
+    return data - baseline
+
+def _denoise_mp(signal):
+    return baseline_wander_removal(wavelet_threshold(signal))
+    
+def ekg_denoise(data, number_channels=None):
+    '''Denoise the ekg data parallely and return.
+    
+    data: np.ndarray of shape [n_channels, n_samples]
+    number_channels: the first N channels to be processed
+    '''
+
+    number_channels = data.shape[0] if number_channels is None else number_channels
+
+    with mp.Pool(processes=number_channels) as workers:
+        results = list()
+
+        for i in range(number_channels):
+            results.append(workers.apply_async(_denoise_mp, (data[i], )))
+
+        workers.close()
+        workers.join()
+
+        for i, result in enumerate(results):
+            data[i] = result.get()
+
+    return data
+
+
+def load_raw_dataset_and_pointwise_labels(raw_dataset):
+    with open(raw_dataset, 'r') as f:
+        data = json.load(f)
+    X = []
+    Y = []
+    for case_id in data.keys():
+        leads = data[case_id]['Leads']
+        x = []
+        y = []
+        for i in range(len(leads_names)):
+            lead_name = leads_names[i]
+            x.append(leads[lead_name]['Signal'])
+
+        signal_len = 5000
+        delineation_tables = leads[leads_names[0]]['DelineationDoc']
+        p_delin = delineation_tables['p']
+        qrs_delin = delineation_tables['qrs']
+        t_delin = delineation_tables['t']
+
+        p = get_mask(p_delin, signal_len)
+        qrs = get_mask(qrs_delin, signal_len)
+        t = get_mask(t_delin, signal_len)
+        background = get_background(p, qrs, t)
+
+        y.append(p)
+        y.append(qrs)
+        y.append(t)
+        y.append(background)
+
+        X.append(x)
+        Y.append(y)
+    X = np.array(X)
+    Y = np.array(Y)
+
+    X = np.swapaxes(X, 1, 2)
+    Y = np.swapaxes(Y, 1, 2)
+
+    return X, Y
+
+def get_mask(table, length):
+    mask = [0] * length
+    for triplet in table:
+        start = triplet[0]
+        end = triplet[2]
+        for i in range(start, end, 1):
+            mask[i] = 1
+    return mask
+
+def get_background(p, qrs, t):
+    background = np.zeros_like(p)
+    for i in range(len(p)):
+        if p[i]==0 and qrs[i]==0 and t[i]==0:
+            background[i]=1
+    return background
+
+
+def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
+    X, Y = load_raw_dataset(raw_dataset)
+    """
+    # maintenance
+    if fix_baseline_wander:
+        X = baselineWanderRemoval(X, FREQUENCY_OF_DATASET)
+    """
+    if smooth:
+        smoothed = []
+        # number of signals
+        for i in range(X.shape[0]):
+            # leads
+            for j in range(X.shape[2]):
+                smoothed.append(smooth_signal(X[i, :, j]))
+        X = np.array(smoothed)[:, :5000, np.newaxis]
+        
+
+    # data augmentation and modification
+    # delete first and last 2 seconds
+    X, Y = X[:, 1000:4000, :], Y[:, 1000:4000, :]
+    # data augmentation by randomly choosing 4 seconds to load to the model
+    X = np.concatenate((np.concatenate((X[:, 0:2000, :], X[:, 500:2500, :]), axis=0), X[:, 1000:3000, :]), axis=0)
+    Y = np.concatenate((np.concatenate((Y[:, 0:2000, :], Y[:, 500:2500, :]), axis=0), Y[:, 1000:3000, :]), axis=0)
+
+    if leads_seperate == True:
+        # (num_input, points, 12 leads)
+        X = np.swapaxes(X, 1, 2)
+        # (num_input, 12 leads, points)
+        X = np.reshape(X, (X.shape[0] * X.shape[1], 1, X.shape[2]))
+        # (num_input * 12, 1, points)
+
+    # (num_input, points, 4 labels)
+    Y = np.repeat(Y, repeats=12, axis=0)
+    # (num_input * 12, points, 4 labels)
+    Y = np.swapaxes(Y, 1, 2)
+    # (num_input * 12, 4 labels, points)
+
+    X = torch.Tensor(X)
+    Y = torch.Tensor(Y)
+
+    return Data.TensorDataset(X, Y)
+
+# this function is used to preprocess the IEC signal
+def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True):
+    # (# of data, points, leads)
+    data = np.swapaxes(data, 1, 2)
+    # (# of data, leads, points)
+
+    if leads_seperate == True:
+        if data.shape[1] > 2:
+            data = np.reshape(data, (data.shape[0] * data.shape[1], 1, data.shape[2]))
+
+    if dns:    
+        # data denoise using upscale and downscale back
+        scale = 1151.79375 / 174.08 # LUDB data average amplitude and IEC data average amplitude
+        data *= scale
+        dnsigs = []
+        for i in range(data.shape[0]):
+            dnsigs.append(ekg_denoise(data[i]))
+        dnsigs = np.array(dnsigs)[:, :, :4992]
+        dnsigs = torch.Tensor(dnsigs)
+        dnsigs /= scale
+        return dnsigs
+
+    if smooth:
+        smoothed = []
+        for i in range(data.shape[0]):
+            smoothed.append(smooth_signal(data[i, 0, :], window_len=10))
+
+        smoothed = np.array(smoothed)[:, np.newaxis, :4992]
+        smoothed = torch.Tensor(smoothed)
+
+        return smoothed
+
+    else:
+        #data = data[:, :, 500:4500]
+        data = data[:, :, :4992]
+        data = torch.Tensor(data)
+
+        return data
