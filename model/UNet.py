@@ -71,9 +71,3 @@ class UNet(nn.Module):
         f = self.final(c9)
         return f
 
-x = Variable(torch.randn(10, 1, 2000))
-net = UNet(1, 4)
-y = net(x)
-print(y.size())
-viz = make_dot(y.mean(), params=dict(net.named_parameters()))
-

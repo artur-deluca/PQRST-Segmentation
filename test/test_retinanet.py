@@ -90,7 +90,7 @@ def test_retinanet_using_IEC(net):
     tol_std_qrsd = 5
     tol_std_qt = 10
     
-    ekg_sig = load_IEC(pre=True)
+    ekg_sig = load_IEC(denoise=wandb.config.test_denoise, pre=True)
 
     plot, intervals = test_retinanet(net, ekg_sig, 4992, visual=False)
 

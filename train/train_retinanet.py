@@ -17,6 +17,9 @@ wandb_config = {
     "epochs": 1500,
     "cls_scale": 1,
     "loc_scale": 1,
+    "train_denoise": False,
+    "test_denoise": False,
+    "augmentation_gaussian_noise_sigma": 0.1,
 }
 
 def train_model(val_ratio=0.2, test_ratio=0.2):
@@ -24,9 +27,9 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
     model = nn.DataParallel(model).cuda()
     model.train()
 
-    wandb.watch(model)
+    #wandb.watch(model)
 
-    ds = BBoxDataset()
+    ds = BBoxDataset(wandb.config.train_denoise)
     test_len = int(len(ds) * test_ratio)
     val_len = int(len(ds) * val_ratio)
     train_len = len(ds) - test_len - val_len
@@ -66,13 +69,17 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
         print("epoch: {}, loc_loss: {}, cls_loss: {}, total_loss: {}".format(epoch, total_loc_loss, total_cls_loss, total_loss))
         wandb.log({"epoch": epoch, "loc_loss": total_loc_loss, "cls_loss": total_cls_loss, "total_loss": total_loss})
 
-        if epoch % 1 == 0:
+        if epoch % 1 == 0 and epoch >= 0:
             Se, PPV, F1 = eval_retinanet(model, valloader)
             if F1 > best_F1:
                 best_F1 = F1
                 torch.save(model.module.state_dict(), "weights/retinanet_best.pkl")
             test_IEC_result = test_retinanet_using_IEC(model)
             print("IEC: {}".format(test_IEC_result))
+
+        if epoch % 100 == 0 and epoch >= 0:
+            print("------Start checking overfitting...------")
+            Se, PPV, F1 = eval_retinanet(model, trainloader)
 
 
 def train():

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from utils.data_utils import normalize, IEC_dataset_preprocessing
 
-def load_IEC(pre=False):
+def load_IEC(denoise=True, pre=False):
     """
     Arg:
         pre: (bool) load from saved preprocessed data or not
@@ -20,7 +20,7 @@ def load_IEC(pre=False):
                 ekg_sig.append(sig.astype(float))
             except IOError:
                 print("file {} does not exist".format("CSE"+str(i).rjust(3, '0')))
-        ekg_sig = dataset_preprocessing(ekg_sig, smooth=False, dns=True)
+        ekg_sig = dataset_preprocessing(ekg_sig, smooth=False, dns=denoise)
         ekg_sig = ekg_sig.to('cuda')
         ekg_sig = normalize(ekg_sig, instance=True)
         torch.save(ekg_sig, "./data/IEC_preprocessed_data.pt")

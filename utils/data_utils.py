@@ -19,7 +19,7 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
         raw_dataset: (string) dataset path
     
     Returns:
-        X:      (list) input signals with sized [#subjects, #leads, signal_length=5000]
+        X:      (Array) input signals with sized [#subjects, #leads, signal_length=5000]
         BBoxes: (list) target bboxes with sized [#subjects, #leads, #objs, 2]
         Labels: (list) target labels with sized [#subjects, #leads, #objs] 
     """
@@ -58,7 +58,7 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
         BBoxes.append(bbox)
         Labels.append(label)
 
-    return X, BBoxes, Labels
+    return np.asarray(X), BBoxes, Labels
 
 def get_bbox_labels(delineation, label):
     """
@@ -486,3 +486,15 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
         data = torch.Tensor(data)
 
         return data
+
+def signal_augmentation(sigs, gaussian_noise_sigma=0.1):
+    """
+    Args:
+        sigs: (numpy) with sized [batch_size, #channels, signal length]
+    """
+    if gaussian_noise_sigma != 0:
+        noise = np.random.normal(0, gaussian_noise_sigma, size=sigs.shape)
+        noisy_sigs = sigs.copy() + noise
+        sigs = noisy_sigs
+        #sigs = np.concatenate((sigs, noisy_sigs), 0)
+    return sigs

@@ -6,8 +6,13 @@ from model.RetinaNet import RetinaNet
 from model.UNet import UNet
 import wandb
 
+config = {
+    "test_denoise": True,
+}
+
 if __name__ == "__main__":
     wandb.init(project="PQRST-segmentation")
+    wandb.config.setdefaults(config)
     num_classes = 3
 
     parser = argparse.ArgumentParser()
