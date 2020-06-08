@@ -286,3 +286,78 @@ def eval_retinanet(model, dataloader):
     wandb.log({"Se": Se, "PPV": PPV, "F1": F1})
     
     return Se, PPV, F1
+
+def eval_retinanet_elementwise(model, dataloader):
+    """
+    Args:
+        model:      (nn.Module) RetinaNet module variable
+        dataloader: (DataLoader) validation dataloader
+        
+    Returns:
+        Se:     (float) TP / (TP + FN)
+        PPV:    (float) TP / (TP + FP)
+        F1:     (float) 2 * Se * PPV / (Se + PPV)
+    """
+    input_length = 3968
+    model.eval()
+    
+    pred_sigs = []
+    gt_sigs = []
+    sigs = []
+    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels) in enumerate(dataloader):
+        batch_size = inputs.size(0)
+        inputs = torch.autograd.Variable(inputs.cuda())
+        loc_targets = torch.autograd.Variable(loc_targets.cuda())
+        cls_targets = torch.autograd.Variable(cls_targets.cuda())
+        inputs = inputs.unsqueeze(1)
+        sigs.append(inputs)
+
+        loc_preds, cls_preds = model(inputs)
+
+        loc_preds = loc_preds.data.squeeze().type(torch.FloatTensor) # sized [#anchors * 3, 2]
+        cls_preds = cls_preds.data.squeeze().type(torch.FloatTensor) # sized [#ahchors * 3, 3]
+
+        loc_targets = loc_targets.data.squeeze().type(torch.FloatTensor)
+        cls_targets = cls_targets.data.squeeze().type(torch.LongTensor)
+
+        # decoder only process data 1 by 1.
+        encoder = DataEncoder()
+        for i in range(batch_size):
+            boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length)
+
+        #ground truth decode using another method
+            gt_boxes_tensor = torch.tensor(gt_boxes[i])
+            gt_labels_tensor = torch.tensor(gt_labels[i])
+            xmin = gt_boxes_tensor[:, 0].clamp(min=1)
+            xmax = gt_boxes_tensor[:, 1].clamp(max=input_length - 1)
+            gt_sig = box_to_sig_generator(xmin, xmax, gt_labels_tensor, input_length, background=False)
+            
+            if is_found:
+                boxes = boxes.ceil()
+                xmin = boxes[:, 0].clamp(min = 1)
+                xmax = boxes[:, 1].clamp(max = input_length - 1)
+
+                # there is no background anchor on predict labels
+                pred_sig = box_to_sig_generator(xmin, xmax, labels, input_length, background=False)
+            else:
+                pred_sig = torch.zeros(1, 4, input_length)
+
+            pred_sigs.append(pred_sig)
+            gt_sigs.append(gt_sig)
+    sigs = torch.cat(sigs, 0)
+    pred_signals = torch.cat(pred_sigs, 0)
+    gt_signals = torch.cat(gt_sigs, 0)
+    plot = predict_plotter(sigs[0][0], pred_signals[0], gt_signals[0])
+    wandb.log({"visualization": plot})
+    pred_onset_offset = onset_offset_generator(pred_signals)
+    gt_onset_offset = onset_offset_generator(gt_signals)
+    result = np.zeros(gt_onset_offset.shape, dtype=bool)
+    for i in range(result.shape[0]):
+        for j in range(result.shape[1]):
+            TP, FP, FN = validation_accuracy(pred_onset_offset[i, j], gt_onset_offset[i, j])
+            if 2 * Se * PPV / (Se + PPV) >= 0.99:
+                result[i, j] = True
+            else:
+                result[i, j] = False
+                
+    return result
