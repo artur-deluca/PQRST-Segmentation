@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 import os
 import wandb
 
@@ -18,11 +19,11 @@ wandb_config = {
     "cls_scale": 1,
     "loc_scale": 1,
     "train_denoise": False,
-    "test_denoise": False,
-    "augmentation_gaussian_noise_sigma": 0.1,
+    "test_denoise": True,
+    "augmentation_gaussian_noise_sigma": 0.0,
 }
 
-def train_model(val_ratio=0.2, test_ratio=0.2):
+def train_model(val_ratio=0.2, test_ratio=0.0):
     model = RetinaNet(3)
     model = nn.DataParallel(model).cuda()
     model.train()
@@ -43,6 +44,7 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
     criterion = FocalLoss()
 
     best_F1 = 0
+    best_IEC = 0
 
     for epoch in range(wandb.config.epochs):
         model.train()
@@ -74,7 +76,12 @@ def train_model(val_ratio=0.2, test_ratio=0.2):
             if F1 > best_F1:
                 best_F1 = F1
                 torch.save(model.module.state_dict(), "weights/retinanet_best.pkl")
+                torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best.pkl"))
             test_IEC_result = test_retinanet_using_IEC(model)
+            if np.mean(test_IEC_result) >= best_IEC:
+                best_IEC = np.mean(test_IEC_result)
+                torch.save(model.module.state_dict(), "weights/retinanet_best_IEC.pkl")
+                torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best_IEC.pkl"))
             print("IEC: {}".format(test_IEC_result))
 
         if epoch % 100 == 0 and epoch >= 0:

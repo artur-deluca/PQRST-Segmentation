@@ -17,12 +17,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", help="test with specific model(default: retinanet)", type=str, choices=["retinanet", "unet"])
+    parser.add_argument("-v", "--visual", help="test with specific model and visualize the result.", action="store_true")
     args = parser.parse_args()
 
     if args.model == "retinanet":
         net = RetinaNet(num_classes).cuda()
-        net.load_state_dict(torch.load("weights/retinanet_best.pkl"))
-        result = test_retinanet.test_retinanet_using_IEC(net)
+        net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
+        result = test_retinanet.test_retinanet_using_IEC(net, args.visual)
     elif args.model == "unet":
         net = UNet(1, 4).cuda()
         net.load_state_dict(torch.load("weights/unet_best.pkl"))
@@ -30,5 +31,5 @@ if __name__ == "__main__":
     else:
         # default using retinanet to test
         net = RetinaNet(num_classes).cuda()
-        net.load_state_dict(torch.load("weights/retinanet_best.pkl"))
-        result = test_retinanet.test_retinanet_using_IEC(net)
+        net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
+        result = test_retinanet.test_retinanet_using_IEC(net, args.visual)

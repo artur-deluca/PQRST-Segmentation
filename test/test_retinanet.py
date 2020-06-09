@@ -40,7 +40,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     pred_sigs = []
     gt_sigs = []
     for i in range(batch_size):
-        boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length, CLS_THRESH=0.5, NMS_THRESH=0.5)
+        boxes, labels, sco, is_found = encoder.decode(loc_preds[i], cls_preds[i], input_length, CLS_THRESH=0.425, NMS_THRESH=0.5)
         if is_found:
             boxes = boxes.ceil()
             xmin = boxes[:, 0].clamp(min = 1)
@@ -74,7 +74,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     intervals = validation_duration_accuracy(pred_onset_offset[:, 1:, :])
     return plot, intervals
 
-def test_retinanet_using_IEC(net):
+def test_retinanet_using_IEC(net, visual=False):
     """
     Args:
         net: (nn.Module) retinanet model variable.
@@ -92,7 +92,7 @@ def test_retinanet_using_IEC(net):
     
     ekg_sig = load_IEC(denoise=wandb.config.test_denoise, pre=True)
 
-    plot, intervals = test_retinanet(net, ekg_sig, 4992, visual=False)
+    plot, intervals = test_retinanet(net, ekg_sig, 4992, visual=visual)
 
     table_mean = []
     table_var = []
