@@ -35,6 +35,8 @@ class RetinaNet(nn.Module):
         loc_preds = torch.cat(loc_preds, 1)
         cls_preds = torch.cat(cls_preds, 1)
 
+        
+
         return loc_preds, cls_preds
 
     def _make_head(self, out_planes):

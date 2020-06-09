@@ -27,12 +27,14 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
         data = json.load(f)
     X = []
     BBoxes = []
-    Labels= []
+    Labels = []
+    Peaks = []
     for case_id in data.keys():
         leads = data[case_id]['Leads']
         x = []
         bbox = []
         label = []
+        peak = []
         for i in range(len(leads_names)):
             lead_name = leads_names[i]
             x.append(leads[lead_name]['Signal'][start_point:end_point])
@@ -44,21 +46,24 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
             t_delin = delineation_tables['t']
 
             # background label 0 will add when encoding
-            p_boxes, p_labels = get_bbox_labels(p_delin, 0)
-            qrs_boxes, qrs_labels = get_bbox_labels(qrs_delin, 1)
-            t_boxes, t_labels = get_bbox_labels(t_delin, 2)
+            p_boxes, p_labels, p_peaks = get_bbox_labels(p_delin, 0)
+            qrs_boxes, qrs_labels, qrs_peaks = get_bbox_labels(qrs_delin, 1)
+            t_boxes, t_labels, t_peaks = get_bbox_labels(t_delin, 2)
             
             b = [*p_boxes, *qrs_boxes, *t_boxes]
             l = [*p_labels, *qrs_labels, *t_labels]
-            
+            p = [*p_peaks, *qrs_peaks, *t_peaks]
+
             bbox.append(b)
             label.append(l)
+            peak.append(p)
 
         X.append(x)
         BBoxes.append(bbox)
         Labels.append(label)
+        Peaks.append(peak)
 
-    return np.asarray(X), BBoxes, Labels
+    return np.asarray(X), BBoxes, Labels, Peaks
 
 def get_bbox_labels(delineation, label):
     """
@@ -71,14 +76,17 @@ def get_bbox_labels(delineation, label):
     """
     bboxes = []
     labels = []
+    peaks = []
     for obj in delineation:
         xmin = obj[0]
+        peak = obj[1]
         xmax = obj[2]
         if xmin >= start_point and xmax < end_point:
             bboxes.append((xmin - start_point, xmax - start_point))
             labels.append(label)
+            peaks.append(peak - start_point)
 
-    return bboxes, labels
+    return bboxes, labels, peaks
 
 def onset_offset_generator(sig):
     """

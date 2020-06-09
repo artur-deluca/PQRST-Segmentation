@@ -70,6 +70,7 @@ class FPN(nn.Module):
         self.smooth2 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
         self.smooth3 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
 
+
     def _make_layer(self, block, planes, num_blocks, stride):
         # only first layer need to downsample input length
         strides = [stride] + [1] * (num_blocks - 1)
