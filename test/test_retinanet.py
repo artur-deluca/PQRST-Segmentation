@@ -24,7 +24,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
         interval:   (list of dict) with sized [#signals], for more info about dict structure, you can see utils.val_utils.validation_duration_accuracy.
     """
     net.eval()
-    loc_preds, cls_preds = net(x)
+    loc_preds, cls_preds, peak_preds = net(x)
     
     loc_preds = loc_preds.data.squeeze().type(torch.FloatTensor)
     cls_preds = cls_preds.data.squeeze().type(torch.FloatTensor)

@@ -1,6 +1,7 @@
 import os, sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from model.resnet_FPN import ResNet18_FPN
 
@@ -17,6 +18,15 @@ class RetinaNet(nn.Module):
         # ctr + width, or start + width
         self.loc_head = self._make_head(self.num_anchors * 2)
         self.cls_head = self._make_head(self.num_anchors * self.num_classes)
+        self.peak_head = nn.Sequential(
+            nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(256, 1, kernel_size=3, stride=1, padding=1),
+        )
 
     def forward(self, x):
         # feature maps
@@ -35,9 +45,10 @@ class RetinaNet(nn.Module):
         loc_preds = torch.cat(loc_preds, 1)
         cls_preds = torch.cat(cls_preds, 1)
 
-        
+        final_fm = F.interpolate(fms[0], scale_factor=8)
+        peak_preds = self.peak_head(final_fm)
 
-        return loc_preds, cls_preds
+        return loc_preds, cls_preds, peak_preds
 
     def _make_head(self, out_planes):
         layers = []

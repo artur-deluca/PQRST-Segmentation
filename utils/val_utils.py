@@ -229,7 +229,7 @@ def eval_retinanet(model, dataloader):
     pred_sigs = []
     gt_sigs = []
     sigs = []
-    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels) in enumerate(dataloader):
+    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels, gt_peaks) in enumerate(dataloader):
         batch_size = inputs.size(0)
         inputs = torch.autograd.Variable(inputs.cuda())
         loc_targets = torch.autograd.Variable(loc_targets.cuda())
@@ -237,7 +237,7 @@ def eval_retinanet(model, dataloader):
         inputs = inputs.unsqueeze(1)
         sigs.append(inputs)
 
-        loc_preds, cls_preds = model(inputs)
+        loc_preds, cls_preds, peak_preds = model(inputs)
 
         loc_preds = loc_preds.data.squeeze().type(torch.FloatTensor) # sized [#anchors * 3, 2]
         cls_preds = cls_preds.data.squeeze().type(torch.FloatTensor) # sized [#ahchors * 3, 3]

@@ -84,7 +84,7 @@ class FPN(nn.Module):
         # batch, channel, rest
         _, _, length = y.size()
 
-        return F.upsample(x, size=(length), mode='nearest') + y
+        return F.interpolate(x, size=(length), mode='nearest') + y
     
     def forward(self, x):
         # resnet
