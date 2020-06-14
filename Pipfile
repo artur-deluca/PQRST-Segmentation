@@ -24,6 +24,8 @@ keras = "*"
 xlrd = "*"
 baselinewanderremoval = "*"
 jupyterlab = "*"
+flask = "*"
+flask-cors = "*"
 
 [requires]
 python_version = "3.6"
