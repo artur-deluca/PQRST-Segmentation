@@ -18,7 +18,7 @@ def validation_accuracy(pred_onset_offset, gt_onset_offset):
     """
     # (batch_size, 4, seconds) only first 3 channels will be used
 
-    tol = 30
+    tol = 5
 
     TP = 0
     FP = 0
@@ -229,7 +229,7 @@ def eval_retinanet(model, dataloader):
     pred_sigs = []
     gt_sigs = []
     sigs = []
-    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels) in enumerate(dataloader):
+    for batch_idx, (inputs, loc_targets, cls_targets, gt_boxes, gt_labels, gt_peaks) in enumerate(dataloader):
         batch_size = inputs.size(0)
         inputs = torch.autograd.Variable(inputs.cuda())
         loc_targets = torch.autograd.Variable(loc_targets.cuda())

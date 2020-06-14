@@ -18,6 +18,17 @@ class BasicBlock(nn.Module):
         self.conv2 = nn.Conv1d(in_channels=planes, out_channels=planes, kernel_size=3, stride=1, bias=False, padding=1)
         self.bn2 = nn.BatchNorm1d(num_features=planes)
         
+        """SE"""
+        
+        self.global_pool = nn.AdaptiveAvgPool1d(1)
+        self.conv_down = nn.Conv1d(planes, planes // 16, kernel_size=1, bias=False)
+        self.conv_up = nn.Conv1d(planes // 16, planes, kernel_size=1, bias=False)
+
+        self.linear_down = nn.Linear(planes, planes // 16, bias=False)
+        self.linear_up = nn.Linear(planes // 16, planes, bias=False)
+
+        self.sigmoid = nn.Sigmoid()
+        
         """
         residual link
         """
@@ -29,14 +40,24 @@ class BasicBlock(nn.Module):
             )
     
     def forward(self, x):
+        """basic block"""
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
-
-        out += self.downsample(x)
+        """SE"""
+        out1 = self.global_pool(out).squeeze()
+        out1 = self.linear_down(out1)
+        out1 = self.relu(out1)
+        out1 = self.linear_up(out1)
+        out1 = self.sigmoid(out1)
+        out1 = out1.unsqueeze(-1)
+        
+        """residual"""
+        out = out * out1.expand_as(out) + self.downsample(x)
+        #out += self.downsample(x)
         out = self.relu(out)
         
         return out
@@ -83,7 +104,7 @@ class FPN(nn.Module):
         # batch, channel, rest
         _, _, length = y.size()
 
-        return F.upsample(x, size=(length), mode='nearest') + y
+        return F.interpolate(x, size=(length), mode='nearest') + y
     
     def forward(self, x):
         # resnet

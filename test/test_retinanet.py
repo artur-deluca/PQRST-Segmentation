@@ -26,13 +26,13 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     net.eval()
     loc_preds, cls_preds = net(x)
     
-    loc_preds = loc_preds.data.squeeze().type(torch.FloatTensor)
-    cls_preds = cls_preds.data.squeeze().type(torch.FloatTensor)
+    loc_preds = loc_preds.data.type(torch.FloatTensor)
+    cls_preds = cls_preds.data.type(torch.FloatTensor)
 
     if ground_truth:
         loc_targets, cls_targets = ground_truth
-        loc_targets = loc_targets.data.squeeze().type(torch.FloatTensor)
-        cls_targets = cls_targets.data.squeeze().type(torch.LongTensor)
+        loc_targets = loc_targets.data.type(torch.FloatTensor)
+        cls_targets = cls_targets.data.type(torch.LongTensor)
     
     batch_size = x.size(0)
     encoder = DataEncoder()
@@ -72,7 +72,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
         TP, FP, FN = validation_accuracy(pred_onset_offset, gt_onset_offset)
     
     intervals = validation_duration_accuracy(pred_onset_offset[:, 1:, :])
-    return plot, intervals
+    return plot, intervals, pred_signals
 
 def test_retinanet_using_IEC(net, visual=False):
     """
@@ -83,16 +83,17 @@ def test_retinanet_using_IEC(net, visual=False):
     """
     tol_pd = 10
     tol_pri = 10
-    tol_qrsd = 6
-    tol_qt = 12
+    tol_qrsd = 10
+    tol_qt = 25
     tol_std_pd = 8
     tol_std_pri = 8
     tol_std_qrsd = 5
     tol_std_qt = 10
     
     ekg_sig = load_IEC(denoise=wandb.config.test_denoise, pre=True)
+    #ekg_sig = torch.nn.ConstantPad1d(15, 0)(ekg_sig)[:, :, :4992]
 
-    plot, intervals = test_retinanet(net, ekg_sig, 4992, visual=visual)
+    plot, intervals, _ = test_retinanet(net, ekg_sig, 4992, visual=visual)
 
     table_mean = []
     table_var = []
