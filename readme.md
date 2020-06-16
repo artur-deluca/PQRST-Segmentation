@@ -17,8 +17,17 @@ There is no data preprocessing on testing set because I found out that with orig
 1. The evaluate method the paper used is to count the correct onset/offset prediction within tolerance value. But the tolerance value mentioned in the paper is way too high. In this project, the tolerance value is set to 15 data points (which is 30ms if data is 500Hz), and can get about 0.93 F1-score.  
 2. Another evaluate method this project provided is to calculate 4 segments duration, which are P-duration, PQ-interval, QRS-duration, QT-interval. And the tolerance used here is also set to 30ms.
 # PQRST Segmentation using RetinaNet1D
-The second approach here is to use one stage object detector model structure to predict P-wave, QRS-wave and T-wave position. Here we simply use RetinaNet which use Resnet as backbone, connect with a simple FPN. Then concatenate with location head and class head.
+The second approach here is to use one stage object detector model structure to predict P-wave, QRS-wave and T-wave position. Here we simply use RetinaNet which use Resnet (SE-Net) as backbone, connect with a simple FPN. Then concatenate with location head and class head.
 ## Data preprocessing
-Currently there is no data preprocessing on training data and testing data.
+### Training
+Because training data have some missing labels, those missing labels' data are removed during training.
+Currently there is no data preprocessing on training data. But there are some options available:
+1. training data denoising using wavelet thresholding.
+2. training data augmentation by adding gaussian noise or scale some part of waves.
+### Testing
+Testing data will denoise using wavelet thresholding before predicting.
+## Evaluation
+This model use the same evaluation method as previous approach. But a little bit difference to tolerance value.  
+The tolerance used in second evaluation method is fixed to [10, 10, 10, 25] on mean and [15, 10, 10, 30] on standard deviation. And the first evaluation method tolerance was set to be 10ms.
 ## Result
-This approach can get 0.968 F1-score which is better than previous approach using UNet.
+This approach can get 0.968 F1-score which is better than previous approach using UNet. And can reach about 0.8 accuracy on IEC dataset using second evaluation method.

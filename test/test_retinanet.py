@@ -160,9 +160,6 @@ def test_retinanet_using_IEC(net, visual=False):
     return result, ans
 
 def removeworst8(mean_diff):
-    tol_mean = [10, 10, 10, 25]
-    tol_std = [15, 10, 10, 30]
-    remove_count = 0
     mean_diff = np.swapaxes(mean_diff, 0, 1)
     mean_diff = (mean_diff[np.abs(mean_diff[:, 1]).argsort()[::-1]])[8:,:]
     return mean_diff.swapaxes(0, 1)
