@@ -85,11 +85,13 @@ def train_model(val_ratio=0.2, test_ratio=0.0):
                 best_F1 = F1
                 torch.save(model.module.state_dict(), "weights/retinanet_best.pkl")
                 torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best.pkl"))
-            test_IEC_result = test_retinanet_using_IEC(model)
+            test_IEC_result, pass_result = test_retinanet_using_IEC(model)
             if np.mean(test_IEC_result) >= best_IEC:
                 best_IEC = np.mean(test_IEC_result)
                 torch.save(model.module.state_dict(), "weights/retinanet_best_IEC.pkl")
                 torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best_IEC.pkl"))
+            if np.all(pass_result==['Passed','Passed','Passed','Passed']):
+                torch.save(model.module.state_dict(), "weights/retinanet_pass_all_IEC.pkl")
             print("IEC: {}".format(test_IEC_result))
 
         if epoch % 100 == 0 and epoch >= 0:

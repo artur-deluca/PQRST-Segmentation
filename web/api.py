@@ -33,9 +33,7 @@ def upload_file():
     net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
     _, _, pred_signals = test_retinanet(net, signals, 4992, visual=False)
 
-    time.sleep(5)
-
     return jsonify({'raw': signals.squeeze().tolist(), "label": pred_signals.tolist()})
 
 def run():
-    app.run()
+    app.run(host='0.0.0.0')
