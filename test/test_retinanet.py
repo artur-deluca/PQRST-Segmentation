@@ -7,7 +7,7 @@ from utils.viz_utils import predict_plotter
 from model.RetinaNet import RetinaNet
 from utils.val_utils import validation_duration_accuracy
 from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_hot_embedding
-from utils.test_utils import load_IEC
+from utils.test_utils import load_IEC, load_ANE_CAL
 from data.encoder import DataEncoder
 
 
@@ -96,16 +96,16 @@ def test_retinanet_using_IEC(net, visual=False):
     plot, intervals, _ = test_retinanet(net, ekg_sig, 4992, visual=visual)
 
     table_mean = []
-    table_var = []
+    #table_var = []
     for i in range(len(intervals)):
         temp = [i, intervals[i]["p_duration"]["mean"], intervals[i]["pq_interval"]["mean"], intervals[i]["qrs_duration"]["mean"], intervals[i]["qt_interval"]["mean"]]
         table_mean.append(temp)
-        temp = [i, intervals[i]["p_duration"]["var"], intervals[i]["pq_interval"]["var"], intervals[i]["qrs_duration"]["var"], intervals[i]["qt_interval"]["var"]]
-        table_var.append(temp)
+        #temp = [i, intervals[i]["p_duration"]["var"], intervals[i]["pq_interval"]["var"], intervals[i]["qrs_duration"]["var"], intervals[i]["qt_interval"]["var"]]
+        #table_var.append(temp)
 
     wandb.log({'visualization': plot})
     wandb.log({"table_mean": wandb.Table(data=table_mean, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
-    wandb.log({"table_var": wandb.Table(data=table_var, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
+    #wandb.log({"table_var": wandb.Table(data=table_var, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
 
     correct = np.zeros(4)
     total = np.zeros(4)
@@ -127,11 +127,14 @@ def test_retinanet_using_IEC(net, visual=False):
         if abs(mean_diff_ans[3][i]) <= tol_qt:# and table_var[i][4] <= tol_std_qt ** 2:
             correct[3] += 1
         total += 1
-
-    mean_diff_ans = removeworst8(mean_diff_ans)
+    result_df = pd.DataFrame(mean_diff_ans.swapaxes(0, 1), columns=["p_duration", "pq_interval", "qrs_duration", "qt_interval"])
+    mean_result_df = pd.DataFrame(table_mean, columns=["index", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])
+    mean_result_df.to_excel(r'./mean_result.xlsx', header=True)
+    result_df.to_excel(r'./result.xlsx', header=True)
+    mean_diff_ans = removeworst(mean_diff_ans, 8)
 
     mean_mean_diff = mean_diff_ans.mean(axis=1)
-    std_mean_diff = mean_diff_ans.std(axis=1)
+    std_mean_diff = mean_diff_ans.std(axis=1, ddof=1)
     ans = ["Fail!", "Fail!", "Fail!", "Fail!"]
     if abs(mean_mean_diff[0]) <= tol_pd and std_mean_diff[0] <= tol_std_pd:
         ans[0] = "Passed"
@@ -159,7 +162,92 @@ def test_retinanet_using_IEC(net, visual=False):
     wandb.log({"result_pd": result[0], "result_pri": result[1], "result_qrsd": result[2], "result_qt": result[3]})
     return result, ans
 
-def removeworst8(mean_diff):
-    mean_diff = np.swapaxes(mean_diff, 0, 1)
-    mean_diff = (mean_diff[np.abs(mean_diff[:, 1]).argsort()[::-1]])[8:,:]
-    return mean_diff.swapaxes(0, 1)
+def test_retinanet_using_ANE_CAL(net, visual=False):
+    """
+    Args:
+        net: (nn.Module) retinanet model variable.
+    Returns:
+        result: (list) with sized [4]. IEC standard accuracy evaluate using retinanet.
+    """
+    tol_pd = 10
+    tol_pri = 10
+    tol_qrsd = 6
+    tol_qt = 12
+    tol_std_pd = 8
+    tol_std_pri = 8
+    tol_std_qrsd = 5
+    tol_std_qt = 10
+    
+    ekg_sig = load_ANE_CAL(denoise=True, pre=False)
+    #ekg_sig = torch.nn.ConstantPad1d(15, 0)(ekg_sig)[:, :, :4992]
+
+    plot, intervals, _ = test_retinanet(net, ekg_sig, 4992, visual=visual)
+
+
+    table_mean = []
+    for i in range(len(intervals)):
+        temp = [i, intervals[i]["p_duration"]["mean"], intervals[i]["pq_interval"]["mean"], intervals[i]["qrs_duration"]["mean"], intervals[i]["qt_interval"]["mean"]]
+        table_mean.append(temp)
+
+    wandb.log({'visualization': plot})
+    wandb.log({"table_mean": wandb.Table(data=table_mean, columns=["file_name", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])})
+    table_mean = np.reshape(np.array(table_mean), (-1, 5, 5)).mean(axis=1)
+
+    correct = np.zeros(4)
+    total = np.zeros(4)
+    df = pd.read_excel("/home/Wr1t3R/PQRST/unet/data/ANE_CAL_reference_value.xlsx", sheet_name=0, header=0)
+    mean_diff_ans = np.zeros((4, table_mean.shape[0]))
+    for i in range(table_mean.shape[0]):
+        mean_diff_ans[0][i] = table_mean[i][1] - df["P-duration"][i]
+        mean_diff_ans[1][i] = table_mean[i][2] - df["PQ-interval"][i]
+        mean_diff_ans[2][i] = table_mean[i][3] - df["QRS-duration"][i]
+        mean_diff_ans[3][i] = table_mean[i][4] - df["QT-interval"][i]
+
+        """count the percentage that can pass the tolerance"""
+        if abs(mean_diff_ans[0][i]) <= tol_pd:# and table_var[i][1] <= tol_std_pd ** 2:
+            correct[0] += 1
+        if abs(mean_diff_ans[1][i]) <= tol_pri:# and table_var[i][2] <= tol_std_pri ** 2:
+            correct[1] += 1
+        if abs(mean_diff_ans[2][i]) <= tol_qrsd:# and table_var[i][3] <= tol_std_qrsd ** 2:
+            correct[2] += 1
+        if abs(mean_diff_ans[3][i]) <= tol_qt:# and table_var[i][4] <= tol_std_qt ** 2:
+            correct[3] += 1
+        total += 1
+    result_df = pd.DataFrame(mean_diff_ans.swapaxes(0, 1), columns=["p_duration", "pq_interval", "qrs_duration", "qt_interval"])
+    mean_result_df = pd.DataFrame(table_mean, columns=["index", "p_duration", "pq_interval", "qrs_duration", "qt_interval"])
+    mean_result_df.to_excel(r'./mean_result_CAL.xlsx', header=True)
+    result_df.to_excel(r'./result_CAL.xlsx', header=True)
+    mean_diff_ans = removeworst(mean_diff_ans, 4)
+
+    mean_mean_diff = mean_diff_ans.mean(axis=1)
+    std_mean_diff = mean_diff_ans.std(axis=1, ddof=1)
+    ans = ["Fail!", "Fail!", "Fail!", "Fail!"]
+    if abs(mean_mean_diff[0]) <= tol_pd and std_mean_diff[0] <= tol_std_pd:
+        ans[0] = "Passed"
+    if abs(mean_mean_diff[1]) <= tol_pri and std_mean_diff[1] <= tol_std_pri:
+        ans[1] = "Passed"
+    if abs(mean_mean_diff[2]) <= tol_qrsd and std_mean_diff[2] <= tol_std_qrsd:
+        ans[2] = "Passed"
+    if abs(mean_mean_diff[3]) <= tol_qt and std_mean_diff[3] <= tol_std_qt:
+        ans[3] = "Passed"
+    
+    print(mean_mean_diff)
+    print(std_mean_diff)
+    print(ans)
+
+    wandb.log({"pd_mean_diff_mean": mean_mean_diff[0], 
+                "pri_mean_diff_mean": mean_mean_diff[1], 
+                "qrsd_mean_diff_mean": mean_mean_diff[2], 
+                "qt_mean_diff_mean": mean_mean_diff[3]})
+    wandb.log({"pd_mean_diff_std": std_mean_diff[0],
+                "pri_mean_diff_std": std_mean_diff[1],
+                "qrsd_mean_diff_std": std_mean_diff[2],
+                "qt_mean_diff_mean": std_mean_diff[3]})
+    
+    result = correct/total
+    wandb.log({"result_pd": result[0], "result_pri": result[1], "result_qrsd": result[2], "result_qt": result[3]})
+    return result, ans
+
+def removeworst(mean_diff, remove_num):
+    mean_diff = np.take_along_axis(mean_diff, np.abs(mean_diff).argsort(axis=1), axis=1)[:, :-remove_num]
+    return mean_diff

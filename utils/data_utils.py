@@ -3,6 +3,7 @@ import torch
 import json
 import pywt
 from scipy.signal import medfilt
+from scipy.stats import entropy
 import multiprocessing as mp
 
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
@@ -409,7 +410,7 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
                                 (TensorDataset) with inputs and ground truth [X, Y]
     """
 
-    X, Y = load_raw_dataset(raw_dataset)
+    X, Y = load_raw_dataset_and_pointwise_labels(raw_dataset)
     """
     # maintenance
     if fix_baseline_wander:
@@ -470,7 +471,7 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
         if data.shape[1] > 2:
             data = np.reshape(data, (data.shape[0] * data.shape[1], 1, data.shape[2]))
 
-    if dns:    
+    if dns:
         # data denoise using upscale and downscale back
         scale = 1151.79375 / 174.08 # LUDB data average amplitude and IEC data average amplitude
         data *= scale
@@ -495,6 +496,7 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
     else:
         #data = data[:, :, 500:4500]
         data = data[:, :, :4992]
+        
         data = torch.Tensor(data)
 
         return data
@@ -510,3 +512,7 @@ def signal_augmentation(sigs, gaussian_noise_sigma=0.1):
         sigs = noisy_sigs
         #sigs = np.concatenate((sigs, noisy_sigs), 0)
     return sigs
+
+def entropy_calc(data, base=None):
+    value, counts = np.unique(data, return_counts=True)
+    return entropy(counts, base=base)

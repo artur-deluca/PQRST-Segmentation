@@ -26,6 +26,8 @@ baselinewanderremoval = "*"
 jupyterlab = "*"
 flask = "*"
 flask-cors = "*"
+openpyxl = "*"
+ica = "*"
 
 [requires]
 python_version = "3.6"
