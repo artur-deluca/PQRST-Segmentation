@@ -6,8 +6,8 @@ import wandb
 from utils.viz_utils import predict_plotter
 from model.RetinaNet import RetinaNet
 from utils.val_utils import validation_duration_accuracy
-from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_hot_embedding
-from utils.test_utils import load_IEC, load_ANE_CAL
+from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_hot_embedding, normalize
+from utils.test_utils import load_IEC, load_ANE_CAL, get_signals_turning_point_by_rdp, enlarge_qrs_list, find_index_closest_to_value, removeworst
 from data.encoder import DataEncoder
 
 
@@ -109,7 +109,7 @@ def test_retinanet_using_IEC(net, visual=False):
 
     correct = np.zeros(4)
     total = np.zeros(4)
-    df = pd.read_excel("/home/Wr1t3R/PQRST/unet/data/CSE_Multilead_Library_Interval_Measurements_Reference_Values.xls", sheet_name=1, header=1)
+    df = pd.read_excel("./data/CSE_Multilead_Library_Interval_Measurements_Reference_Values.xls", sheet_name=1, header=1)
     mean_diff_ans = np.zeros((4, len(intervals)))
     for i in range(len(intervals)):
         mean_diff_ans[0][i] = table_mean[i][1] - df["P-duration"][i]
@@ -178,7 +178,7 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
     tol_std_qrsd = 5
     tol_std_qt = 10
     
-    ekg_sig = load_ANE_CAL(denoise=True, pre=False)
+    ekg_sig = load_ANE_CAL(denoise=True, pre=True)
     #ekg_sig = torch.nn.ConstantPad1d(15, 0)(ekg_sig)[:, :, :4992]
 
     plot, intervals, _ = test_retinanet(net, ekg_sig, 4992, visual=visual)
@@ -195,7 +195,7 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
 
     correct = np.zeros(4)
     total = np.zeros(4)
-    df = pd.read_excel("/home/Wr1t3R/PQRST/unet/data/ANE_CAL_reference_value.xlsx", sheet_name=0, header=0)
+    df = pd.read_excel("./data/ANE_CAL_reference_value.xlsx", sheet_name=0, header=0)
     mean_diff_ans = np.zeros((4, table_mean.shape[0]))
     for i in range(table_mean.shape[0]):
         mean_diff_ans[0][i] = table_mean[i][1] - df["P-duration"][i]
@@ -248,6 +248,151 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
     wandb.log({"result_pd": result[0], "result_pri": result[1], "result_qrsd": result[2], "result_qt": result[3]})
     return result, ans
 
-def removeworst(mean_diff, remove_num):
-    mean_diff = np.take_along_axis(mean_diff, np.abs(mean_diff).argsort(axis=1), axis=1)[:, :-remove_num]
-    return mean_diff
+
+def test_retinanet_by_qrs(net):
+    """
+    Args:
+        net: (nn.Module) Retinanet module
+    """
+    ekg_sig = load_ANE_CAL(denoise=False, pre=False, normalize=False)
+    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=True)
+    
+    final_preds = []
+    ekg_sig = normalize(ekg_sig)
+    for i in range(ekg_sig.size(0) // 128 + 1):
+        _, _, pred_signals = test_retinanet(net, ekg_sig[i*128:(i+1)*128, :, :], 4992, visual=False)
+        final_preds.append(pred_signals)
+    final_preds = torch.cat(final_preds, dim=0)
+    ekg_sig = ekg_sig.cpu().numpy()
+
+    onset_offset = onset_offset_generator(final_preds)
+    qrs_interval = []
+    for i in range(onset_offset.shape[0]):
+        qrs_interval.append([])
+        j = 0
+        while j < 4992:
+            if onset_offset[i, 2, j] == -1:
+                qrs_interval[i].append([j])
+                j += 1
+                while onset_offset[i, 2, j] == 0:
+                    j += 1
+                qrs_interval[i][-1].append(j)
+            j += 1
+    
+    enlarge_qrs = enlarge_qrs_list(qrs_interval)
+
+    turning = []
+    for index in range(ekg_sig.shape[0]):
+        turning.append([])
+        for j in range(len(enlarge_qrs[index])):
+            filtered_peaks = list(filter(lambda i: i >= enlarge_qrs[index][j][0] and i <= enlarge_qrs[index][j][1], turn_point[index]))
+            turning[index].append(filtered_peaks)
+            idx = find_index_closest_to_value(ekg_sig[index, 0, filtered_peaks[1]:filtered_peaks[2]], ekg_sig[index, 0, filtered_peaks[0]])
+            idx = idx + filtered_peaks[1] - enlarge_qrs[index][j][0]
+    
+    pred = []
+    for i in range(len(turning)):
+        pred.append({"q_duration": [], "r_duration": [], "s_duration": []})
+        mode = np.argmax(np.bincount([len(i) for i in turning[i]]))
+        for j in range(len(turning[i])):
+            if len(turning[i][j]) != mode:
+                continue
+            if mode >= 5:
+                # q,r,s
+                # find q duration
+                q_end = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][1]: turning[i][j][2]], ekg_sig[i, 0, turning[i][j][0]])
+                q_end = q_end + turning[i][j][1]
+                q_duration = q_end - turning[i][j][0]
+                pred[i]["q_duration"].append(q_duration)
+                # find s duration
+                s_start = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][2]: turning[i][j][3]], ekg_sig[i, 0, turning[i][j][4]])
+                s_start = s_start + turning[i][j][2]
+                s_duration = turning[i][j][4] - s_start
+                pred[i]["s_duration"].append(s_duration)
+                # find r duration
+                r_start = q_end
+                r_end = s_start
+                r_duration = r_end - r_start
+                pred[i]["r_duration"].append(r_duration)
+            elif mode == 4:
+                # q,r or r,s
+                if ekg_sig[i, 0, turning[i][j][1]] > ekg_sig[i, 0, turning[i][j][2]]:
+                    pred[i]["q_duration"].append(0)
+                    # r, s            
+                    # find s duration
+                    s_start = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][1]: turning[i][j][2]], ekg_sig[i, 0, turning[i][j][3]])
+                    s_start = s_start + turning[i][j][1]
+                    s_duration = turning[i][j][3] - s_start
+                    pred[i]["s_duration"].append(s_duration)
+                    # find r duration
+                    r_end = s_start
+                    r_duration = r_end - turning[i][j][0]
+                    pred[i]["r_duration"].append(r_duration)
+                else:
+                    if i == 84:
+                        print(turning[i][j][1], turning[i][j][2])
+                    # q, r
+                    pred[i]["s_duration"].append(0)
+                    # find q duration
+                    q_end = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][1]: turning[i][j][2]], ekg_sig[i, 0, turning[i][j][0]])
+                    q_end = q_end + turning[i][j][1]
+                    q_duration = q_end - turning[i][j][0]
+                    pred[i]["q_duration"].append(q_duration)                
+                    # find r duration
+                    r_start = q_end
+                    r_duration = turning[i][j][3] - r_start
+                    pred[i]["r_duration"].append(r_duration)
+            elif mode <= 3:
+                # only q or r
+                if ekg_sig[i, 0, turning[i][j][1]] > ekg_sig[i, 0, turning[i][j][0]]:
+                    # r
+                    pred[i]["q_duration"].append(0)
+                    pred[i]["s_duration"].append(0)
+                    r_duration = turning[i][j][2] - turning[i][j][0]
+                    pred[i]["r_duration"].append(r_duration)
+                else:
+                    # q
+                    pred[i]["r_duration"].append(0)
+                    pred[i]["s_duration"].append(0)
+                    q_duration = turning[i][j][2] - turning[i][j][0]
+                    pred[i]["q_duration"].append(q_duration)
+
+    standard_qrs = []
+    # ANE
+    standard_qrs.append({"q_duration": 12, "r_duration": 52, "s_duration": 30})
+    standard_qrs.append({"q_duration": 12, "r_duration": 52, "s_duration": 30})
+    standard_qrs.append({"q_duration": 12, "r_duration": 52, "s_duration": 30})
+    #CAL
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 56, "s_duration": 0})
+    standard_qrs.append({"q_duration": 0, "r_duration": 56, "s_duration": 0})
+    standard_qrs.append({"q_duration": 0, "r_duration": 56, "s_duration": 0})
+    standard_qrs.append({"q_duration": 56, "r_duration": 0, "s_duration": 0})
+    standard_qrs.append({"q_duration": 56, "r_duration": 0, "s_duration": 0})
+    standard_qrs.append({"q_duration": 56, "r_duration": 0, "s_duration": 0})
+    standard_qrs.append({"q_duration": 0, "r_duration": 18, "s_duration": 18})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+    standard_qrs.append({"q_duration": 0, "r_duration": 50, "s_duration": 50})
+
+    mean_diff = np.zeros((3, 17))
+    for i in range(17):
+        q_temp_mean = []
+        r_temp_mean = []
+        s_temp_mean = []
+        for j in range(5):
+            q_temp_mean.append(np.mean(pred[i*5+j]["q_duration"]))
+            r_temp_mean.append(np.mean(pred[i*5+j]["r_duration"]))
+            s_temp_mean.append(np.mean(pred[i*5+j]["s_duration"]))
+        mean_diff[0][i] = np.mean(q_temp_mean)*2 - standard_qrs[i]["q_duration"]
+        mean_diff[1][i] = np.mean(r_temp_mean)*2 - standard_qrs[i]["r_duration"]
+        mean_diff[2][i] = np.mean(s_temp_mean)*2 - standard_qrs[i]["s_duration"]
+    print(pd.DataFrame(mean_diff.T, columns=["q","r","s"]))
+    mean_diff = removeworst(mean_diff, 4)
+    mean_diff_mean = np.mean(mean_diff, axis=1)
+    mean_diff_std = np.std(mean_diff, axis=1, ddof=1)
+    print(mean_diff_mean)
+    print(mean_diff_std)
