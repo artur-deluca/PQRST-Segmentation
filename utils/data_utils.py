@@ -2,9 +2,11 @@ import numpy as np
 import torch
 import json
 import pywt
+from rdp import rdp
 from scipy.signal import medfilt
 from scipy.stats import entropy
 import multiprocessing as mp
+from audicor_reader.reader import read_IEC
 
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
 FREQUENCY_OF_DATASET = 500
@@ -68,7 +70,67 @@ def load_raw_dataset_and_bbox_labels(raw_dataset):
         Labels.append(label)
         Peaks.append(peak)
 
-    return np.asarray(X), BBoxes, Labels, Peaks
+    return X, BBoxes, Labels, Peaks
+
+def load_raw_dataset_and_bbox_labels_CAL():
+    """
+    Get raw dataset with signals, bboxes and labels
+    
+    Args:
+        raw_dataset: (string) dataset path
+    
+    Returns:
+        X:      (Array) input signals with sized [#subjects, #leads, signal_length=5000]
+        BBoxes: (list) target bboxes with sized [#subjects, #leads, #objs, 2]
+        Labels: (list) target labels with sized [#subjects, #leads, #objs] 
+    """
+
+    name = ["ANE20000", "ANE20001", "ANE20002",
+     "CAL05000", "CAL10000", "CAL15000", 
+     "CAL20000", "CAL20002", "CAL20100", 
+     "CAL20110","CAL20160", "CAL20200", 
+     "CAL20210", "CAL20260", "CAL20500", 
+     "CAL30000", "CAL50000"]
+
+    path = "./data/IEC/IEC_from_audicor/"
+    
+    X = []
+    BBoxes = []
+    Labels = []
+    Peaks = []
+    for i in range(len(name)):
+        x = []
+        bbox = []
+        label = []
+        peak = []
+        for j in range(5):
+            signal = list(read_IEC(path+name[i]+"_"+str(j+1)+".raw"))
+            with open(path+"CAL_label/"+name[i]+"_"+str(j+1)+".json") as f:
+                label_ = json.load(f)
+            
+            p_delin = label_['p']
+            qrs_delin = label_['qrs']
+            t_delin = label_['t']
+            # background label 0 will add when encoding
+            p_boxes, p_labels, p_peaks = get_bbox_labels(p_delin, 0)
+            qrs_boxes, qrs_labels, qrs_peaks = get_bbox_labels(qrs_delin, 1)
+            t_boxes, t_labels, t_peaks = get_bbox_labels(t_delin, 2)
+            
+            b = [*p_boxes, *qrs_boxes, *t_boxes]
+            l = [*p_labels, *qrs_labels, *t_labels]
+            p = [*p_peaks, *qrs_peaks, *t_peaks]
+
+            x.append(signal[0][start_point:end_point])
+            bbox.append(b)
+            label.append(l)
+            peak.append(p)
+
+        X.append(x)
+        BBoxes.append(bbox)
+        Labels.append(label)
+        Peaks.append(peak)
+
+    return X, BBoxes, Labels, Peaks
 
 def get_bbox_labels(delineation, label):
     """
@@ -83,9 +145,14 @@ def get_bbox_labels(delineation, label):
     labels = []
     peaks = []
     for obj in delineation:
-        xmin = obj[0]
-        peak = obj[1]
-        xmax = obj[2]
+        if len(obj) >= 3:
+            xmin = obj[0]
+            peak = obj[1]
+            xmax = obj[2]
+        elif len(obj) == 2:
+            xmin = obj[0]
+            xmax = obj[1]
+            peak = (xmin + xmax) // 2
         if xmin >= start_point and xmax < end_point:
             bboxes.append((xmin - start_point, xmax - start_point))
             labels.append(label)
@@ -516,3 +583,13 @@ def signal_augmentation(sigs, gaussian_noise_sigma=0.1):
 def entropy_calc(data, base=None):
     value, counts = np.unique(data, return_counts=True)
     return entropy(counts, base=base)
+
+def signal_rdp(signal, epsilon=10):
+    process_data = []
+    for i in range(len(signal)):
+        process_data.append([i, signal[i]])
+    processed = rdp(process_data, epsilon=epsilon)
+    ret = []
+    for i in range(len(processed)):
+        ret.append(int(processed[i][0]))
+    return ret

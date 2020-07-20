@@ -1,7 +1,7 @@
 import argparse
 import torch
-import test.test_retinanet as test_retinanet
-import test.test_unet as test_unet
+import evaluation.test_retinanet as test_retinanet
+import evaluation.test_unet as test_unet
 from model.RetinaNet import RetinaNet
 from model.UNet import UNet
 import wandb
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     if args.model == "retinanet":
         net = RetinaNet(num_classes).cuda()
         net.load_state_dict(torch.load(args.path))
-        #result = test_retinanet.test_retinanet_using_IEC(net, args.visual)
+        result = test_retinanet.test_retinanet_using_IEC(net, args.visual)
         result2 = test_retinanet.test_retinanet_using_ANE_CAL(net, args.visual)
     elif args.model == "unet":
         net = UNet(1, 4).cuda()
@@ -38,4 +38,5 @@ if __name__ == "__main__":
         net = RetinaNet(num_classes).cuda()
         net.load_state_dict(torch.load(args.path))
         #result = test_retinanet.test_retinanet_using_IEC(net, args.visual)
-        result2 = test_retinanet.test_retinanet_using_ANE_CAL(net, args.visual)
+        #result2 = test_retinanet.test_retinanet_using_ANE_CAL(net, args.visual)
+        test_retinanet.test_retinanet_by_qrs(net)

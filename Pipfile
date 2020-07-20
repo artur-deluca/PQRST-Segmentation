@@ -28,6 +28,7 @@ flask = "*"
 flask-cors = "*"
 openpyxl = "*"
 ica = "*"
+rdp = "*"
 
 [requires]
 python_version = "3.6"

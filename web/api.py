@@ -5,7 +5,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from model.RetinaNet import RetinaNet
-from test.test_retinanet import test_retinanet
+from evaluation.test_retinanet import test_retinanet
 from utils.data_utils import IEC_dataset_preprocessing, normalize
 
 import time
@@ -69,7 +69,8 @@ def testing_using_retinanet():
     signal = IEC_dataset_preprocessing(signal, smooth=False, dns=False).cuda()
     signal = normalize(signal)
     net = RetinaNet(3).cuda()
-    net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
+    #net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
+    net.load_state_dict(torch.load("weights/retinanet_best_pass_all(CAL)_22.pkl"))
     final_preds = []
     for i in range(signal.size(0) // 128 + 1):
         _, _, pred_signals = test_retinanet(net, signal[i*128:(i+1)*128, :, :], 4992, visual=False)
