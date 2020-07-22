@@ -8,8 +8,25 @@ from utils.val_utils import validation_duration_accuracy
 from utils.test_utils import load_IEC
 from utils.viz_utils import predict_plotter
 
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.cfg")
+
 
 def test(net, x, ground_truth=None):
+    """
+    test the UNet model by computing F1 score
+
+    Args:
+        net: (nn.Module) UNet module
+        x: (Tensor) with sized [#signals, 1 lead, signal_length]
+        ground_truth: (Tensor) with sized [#signals, 4 segments, signal_length], 4 segments are background, p, qrs, and t
+
+    Returns:
+        plot: (plt object)
+        intervals: (dict) with complex structure, see utils.val_utils.validation_duration_accuracy for more information
+    """
     net.eval()
     # input size should be (num_of_signals, 1, 500 * seconds)
     with torch.no_grad():
@@ -27,6 +44,14 @@ def test(net, x, ground_truth=None):
     return plot, intervals
 
 def test_using_IEC(net):
+    """
+    test the UNet by IEC dataset and IEC standard evaluation method.
+
+    Args:
+        net: (nn.Module) UNet module
+    Returns:
+        result: (Array) with sized [4], means the 4 segments' accuracy.
+    """
     tol = 30    
     ekg_sig = load_IEC(pre=True)
     plot, intervals = test(net, ekg_sig)
@@ -41,7 +66,7 @@ def test_using_IEC(net):
 
     correct = np.zeros(4)
     total = np.zeros(4)
-    df = pd.read_excel("/home/Wr1t3R/PQRST/unet/data/CSE_Multilead_Library_Interval_Measurements_Reference_Values.xls", sheet_name=1, header=1)
+    df = pd.read_excel(config["General"]["CSE_label_path"], sheet_name=1, header=1)
     for i in range(len(intervals)):
         if abs(table[i][1] - df["P-duration"][i]) < tol:
             correct[0] += 1

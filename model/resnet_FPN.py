@@ -4,6 +4,9 @@ import torch.nn.functional as F
 
 
 class BasicBlock(nn.Module):
+    """
+    The basic block that are used in resnet18/34
+    """
     expansion = 1
 
     def __init__(self, in_planes, planes, stride=1):
@@ -64,6 +67,9 @@ class BasicBlock(nn.Module):
         
 
 class FPN(nn.Module):
+    """
+    the RetinaNet structure. backbone using resnet18, and connect with a simple FPN that remove the p7 layer.
+    """
     def __init__(self, block, num_blocks):
         super(FPN, self).__init__()
         self.in_planes = 64
@@ -124,12 +130,11 @@ class FPN(nn.Module):
         p4 = self.smooth1(p4)
         p3 = self._upsample_add(p4, self.lateral_layer3(c3))
         p3 = self.smooth2(p3)
-        #p2 = self._upsample_add(p3, self.lateral_layer4(c2))
-        #p2 = self.smooth3(p2)
 
         return p3, p4, p5, p6
 
 def ResNet18_FPN():
+    """
+    the entry point of this model
+    """
     return FPN(BasicBlock, [2, 2, 2, 2])
-
-# (batch, length)

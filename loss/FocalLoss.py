@@ -5,6 +5,9 @@ from torch.autograd import Variable
 from utils.data_utils import one_hot_embedding
 
 class FocalLoss(nn.Module):
+    """
+    the self-defined loss function 'focal loss' that are used in RetinaNet training
+    """
     def __init__(self, num_classes=3):
         super(FocalLoss, self).__init__()
         self.num_classes = num_classes
@@ -54,12 +57,12 @@ class FocalLoss(nn.Module):
         Compute loss between (loc_preds, loc_targets) and (cls_preds, cls_targets).
 
         Args:
-        :param loc_preds: (tensor) predicted locations, sized (batch_size, #ahchors, 2)
-        :param loc_targets: (tensor) encoded target locations, sized (batch_size, #anchors, 2)
-        :param cls_preds: (tensor) predicted class confidences, sized (batch_size, #anchors, #classes)
-        :param cls_targets: (tensor) encoded target labels, sized (batch_size, #anchors)
+            loc_preds: (tensor) predicted locations, sized (batch_size, #ahchors, 2)
+            loc_targets: (tensor) encoded target locations, sized (batch_size, #anchors, 2)
+            cls_preds: (tensor) predicted class confidences, sized (batch_size, #anchors, #classes)
+            cls_targets: (tensor) encoded target labels, sized (batch_size, #anchors)
 
-        :loss:
+        Returns:
             (tensor) loss = SmoothL1Loss(loc_preds, loc_targets) + FocalLoss(cls_preds, cls_targets)
         """
         batch_size, num_boxes = cls_targets.size()

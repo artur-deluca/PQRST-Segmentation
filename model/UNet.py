@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from torchviz import make_dot, make_dot_from_trace
 
 class UNet(nn.Module):
+    """a simple UNet from paper 'Deep Learning for ECG Segmentation'"""
     def __init__(self, in_ch, out_ch):
         super(UNet, self).__init__()
         # conv1d + batchnorm1d + relu

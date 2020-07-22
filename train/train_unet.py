@@ -21,6 +21,16 @@ wandb_config = {
 
 
 def train_model(net, epochs=6000, batch_size=32, lr=1e-4, device=torch.device('cuda')):
+    """
+    training the UNet model
+
+    Args:
+        net: (nn.Module) UNet module
+        epochs: (int) training epochs
+        batch_size: (int) batch_size
+        lr: (float) learning rate
+        device: (torch.device) execute device. cuda/cpu
+    """
     wandb.watch(net)
 
     data = load_dataset_using_pointwise_labels()

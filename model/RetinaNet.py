@@ -6,6 +6,9 @@ from model.resnet_FPN import ResNet18_FPN
 
 
 class RetinaNet(nn.Module):
+    """
+    the whole model of RetinaNet
+    """
     # 3 scales and this is 1d, only need 1 for each scales
     num_anchors = 3
 

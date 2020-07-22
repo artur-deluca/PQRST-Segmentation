@@ -9,23 +9,37 @@ from data.BBoxDataset import BBoxDataset
 from loss.FocalLoss import FocalLoss
 from utils.val_utils import eval_retinanet
 from evaluation.test_retinanet import test_retinanet_using_IEC, test_retinanet_using_ANE_CAL
-from optimizer.radam import RAdam
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.cfg")
+if config["General"]["use_gpu_num"] == "2":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+elif config["General"]["use_gpu_num"] == "1":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 wandb_config = {
-    "batch_size": 128,
-    "lr": 0.001,
-    "epochs": 1500,
+    "batch_size": int(config["RetinaNet"]["training_batch_size"]),
+    "lr": float(config["RetinaNet"]["training_learning_rate"]),
+    "epochs": int(config["RetinaNet"]["training_epochs"]),
     "cls_scale": 1,
     "loc_scale": 1,
-    "train_denoise": False,
-    "test_denoise": True,
+    "train_denoise": config["RetinaNet"]["training_denoise"] == True,
+    "test_denoise": config["RetinaNet"]["testing_denoise"] == True,
     "augmentation_gaussian_noise_sigma": 0.0,
     "data_augmentation": False,
 }
 
-def train_model(val_ratio=0.2, test_ratio=0.0):
+def train_model(val_ratio=0.2, test_ratio=0.2):
+    """
+    training the RetinaNet model
+
+    Args:
+        val_ratio: (float) the dataset seperation on validation ratio
+        test_ratio: (float) the dataset seperation on validation ratio
+    """
+
     model = RetinaNet(3)
     model = nn.DataParallel(model).cuda()
     model.train()
@@ -41,9 +55,7 @@ def train_model(val_ratio=0.2, test_ratio=0.0):
     valloader = torch.utils.data.DataLoader(valset, batch_size=wandb.config.batch_size, shuffle=True, collate_fn=ds.collate_fn)
     #testloader = torch.utils.data.DataLoader(testset, batch_size=wandb.config.batch_size, shuffle=True, collate_fn=ds.collate_fn)
     
-    #optimizer = torch.optim.SGD(params=model.parameters(), lr=config['lr'])
     optimizer = torch.optim.Adam(params=model.parameters(), lr=wandb.config.lr)
-    #optimizer = RAdam(params=model.parameters(), lr=wandb.config.lr)
     #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 100)
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
@@ -82,20 +94,20 @@ def train_model(val_ratio=0.2, test_ratio=0.0):
             #lr_scheduler.step(F1)
             if F1 > best_F1:
                 best_F1 = F1
-                torch.save(model.module.state_dict(), "weights/retinanet_best(CAL).pkl")
+                torch.save(model.module.state_dict(), config["RetinaNet"]["weight_save_path"]+"retinanet_best(CAL).pkl")
                 torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best(CAL).pkl"))
             test_IEC_result, pass_result = test_retinanet_using_IEC(model)
             if np.mean(test_IEC_result) >= best_IEC:
                 best_IEC = np.mean(test_IEC_result)
-                torch.save(model.module.state_dict(), "weights/retinanet_best_IEC(CAL).pkl")
+                torch.save(model.module.state_dict(), config["RetinaNet"]["weight_save_path"]+"retinanet_best_IEC(CAL).pkl")
                 torch.save(model.module.state_dict(), os.path.join(wandb.run.dir, "model_best_IEC(CAL).pkl"))
             if np.all(pass_result==['Passed','Passed','Passed','Passed']):
-                torch.save(model.module.state_dict(), "weights/retinanet_pass_all_IEC(CAL).pkl")
+                torch.save(model.module.state_dict(), config["RetinaNet"]["weight_save_path"]+"retinanet_pass_all_IEC(CAL).pkl")
             test_CAL_result, CAL_pass_result = test_retinanet_using_ANE_CAL(model)
             if np.all(CAL_pass_result==['Passed','Passed','Passed','Passed']):
-                torch.save(model.module.state_dict(), "weights/retinanet_pass_all_CAL(CAL).pkl")
+                torch.save(model.module.state_dict(), config["RetinaNet"]["weight_save_path"]+"retinanet_pass_all_CAL(CAL).pkl")
             if np.all(pass_result==['Passed','Passed','Passed','Passed']) and np.all(CAL_pass_result==['Passed','Passed','Passed','Passed']):
-                torch.save(model.module.state_dict(), "weights/retinanet_best_pass_all(CAL)_"+str(epoch)+".pkl")
+                torch.save(model.module.state_dict(), config["RetinaNet"]["weight_save_path"]+"retinanet_best_pass_all(CAL)_"+str(epoch)+".pkl")
 
             print("IEC: {}".format(test_IEC_result))
         if epoch % 100 == 0 and epoch >= 0:

@@ -10,9 +10,15 @@ from utils.data_utils import onset_offset_generator, box_to_sig_generator, one_h
 from utils.test_utils import load_IEC, load_ANE_CAL, get_signals_turning_point_by_rdp, enlarge_qrs_list, find_index_closest_to_value, removeworst
 from data.encoder import DataEncoder
 
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.cfg")
 
 def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     """
+    test the RetinaNet by any preprocessed signals.
+
     Args:
         net:            (nn.Module) RetinaNet model
         x:              (Tensor) with sized [#signals, 1 lead, values]
@@ -76,6 +82,8 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
 
 def test_retinanet_using_IEC(net, visual=False):
     """
+    load IEC dataset and preprocess the signals, then testing RetinaNet using test_reitnanet function
+
     Args:
         net: (nn.Module) retinanet model variable.
     Returns:
@@ -109,7 +117,7 @@ def test_retinanet_using_IEC(net, visual=False):
 
     correct = np.zeros(4)
     total = np.zeros(4)
-    df = pd.read_excel("./data/CSE_Multilead_Library_Interval_Measurements_Reference_Values.xls", sheet_name=1, header=1)
+    df = pd.read_excel(config["General"]["CSE_label_path"], sheet_name=1, header=1)
     mean_diff_ans = np.zeros((4, len(intervals)))
     for i in range(len(intervals)):
         mean_diff_ans[0][i] = table_mean[i][1] - df["P-duration"][i]
@@ -164,6 +172,8 @@ def test_retinanet_using_IEC(net, visual=False):
 
 def test_retinanet_using_ANE_CAL(net, visual=False):
     """
+    load ANE and CAL dataset and preprocess the signals, testing the result using test_retinanet function
+
     Args:
         net: (nn.Module) retinanet model variable.
     Returns:
@@ -195,7 +205,7 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
 
     correct = np.zeros(4)
     total = np.zeros(4)
-    df = pd.read_excel("./data/ANE_CAL_reference_value.xlsx", sheet_name=0, header=0)
+    df = pd.read_excel(config["General"]["CAL_label_path"], sheet_name=0, header=0)
     mean_diff_ans = np.zeros((4, table_mean.shape[0]))
     for i in range(table_mean.shape[0]):
         mean_diff_ans[0][i] = table_mean[i][1] - df["P-duration"][i]
@@ -251,11 +261,14 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
 
 def test_retinanet_by_qrs(net):
     """
+    testing the CAL and ANE dataset q, r, s duration using rdp algorithm.
+
     Args:
         net: (nn.Module) Retinanet module
     """
-    ekg_sig = load_ANE_CAL(denoise=False, pre=False, normalize=False)
-    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=True)
+    ekg_sig = load_ANE_CAL(denoise=False, pre=False, nor=False)
+    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=False)
+    print(len(turn_point[0]))
     
     final_preds = []
     ekg_sig = normalize(ekg_sig)
@@ -391,6 +404,8 @@ def test_retinanet_by_qrs(net):
         mean_diff[1][i] = np.mean(r_temp_mean)*2 - standard_qrs[i]["r_duration"]
         mean_diff[2][i] = np.mean(s_temp_mean)*2 - standard_qrs[i]["s_duration"]
     print(pd.DataFrame(mean_diff.T, columns=["q","r","s"]))
+    print(np.mean(mean_diff, axis=1))
+    print(np.std(mean_diff, axis=1, ddof=1))
     mean_diff = removeworst(mean_diff, 4)
     mean_diff_mean = np.mean(mean_diff, axis=1)
     mean_diff_std = np.std(mean_diff, axis=1, ddof=1)

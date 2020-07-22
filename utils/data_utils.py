@@ -7,12 +7,16 @@ from scipy.signal import medfilt
 from scipy.stats import entropy
 import multiprocessing as mp
 from audicor_reader.reader import read_IEC
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.cfg")
 
 leads_names = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
 FREQUENCY_OF_DATASET = 500
 start_point = 516
 end_point = 4484
-raw_dataset_path = "/home/Wr1t3R/PQRST/unet/data/ecg_data_200.json"
+raw_dataset_path = config["General"]["LUDB_path"]
 
 def load_raw_dataset_and_bbox_labels(raw_dataset):
     """
@@ -92,7 +96,7 @@ def load_raw_dataset_and_bbox_labels_CAL():
      "CAL20210", "CAL20260", "CAL20500", 
      "CAL30000", "CAL50000"]
 
-    path = "./data/IEC/IEC_from_audicor/"
+    path = config["General"]["IEC_path"]
     
     X = []
     BBoxes = []
@@ -134,6 +138,8 @@ def load_raw_dataset_and_bbox_labels_CAL():
 
 def get_bbox_labels(delineation, label):
     """
+    get bbox labels from delineation table
+
     Args: 
         delineation: (list) sized [#obj, 3], 3 indicates onset, peak, offset
 
@@ -162,11 +168,13 @@ def get_bbox_labels(delineation, label):
 
 def onset_offset_generator(sig):
     """
+    get the onset and offset of p, qrs, t segmentation on signals
+
     Args:
-        signal: (Tensor) with sized [batch_size, #channels, signal length]
+        signal: (Tensor) with sized [batch_size, #channels, signal_length]
 
     Returns:
-        onset_offset: (Array) with sized [batch_size, #channels, signal length]
+        onset_offset: (Array) with sized [batch_size, #channels, signal_length]
     """
     sig = sig.cpu().numpy()
     # sig(batch_size, 4, seconds)
@@ -180,6 +188,8 @@ def onset_offset_generator(sig):
 
 def box_to_sig_generator(xmin, xmax, labels, sig_length, background=True):
     """
+    decode the bbox label to signal label.
+
     Args:
         xmin:       (Tensor) with sized [#obj]
         xmax:       (Tensor) with sized [#obj]
@@ -203,6 +213,8 @@ def box_to_sig_generator(xmin, xmax, labels, sig_length, background=True):
 
 def smooth_signal(signal, window_len=20, window="hanning"):
     """
+    smooth the signal by window averaging.
+
     Args:
         signal:     (Array) with sized [signal length]
         window_len: (int) window averaging's window size
@@ -234,7 +246,8 @@ def smooth_signal(signal, window_len=20, window="hanning"):
     return y
 
 def change_box_order(boxes, order):
-    """change box order between (x_min, x_max) and (x_center, length)
+    """
+    change box order between (x_min, x_max) and (x_center, length)
 
     Args:
         boxes:  (Tensor) bounding boxes, sized [N, 2]
@@ -251,7 +264,8 @@ def change_box_order(boxes, order):
     return torch.cat([a-b/2, a+b/2], 1)
 
 def box_iou(box1, box2, order='xx'):
-    """Compute the intersection over union of two set of boxes
+    """
+    Compute the intersection over union of two set of boxes
 
     The default box order is (xmin, xmax)
 
@@ -347,12 +361,14 @@ def one_hot_embedding(labels, num_classes):
 
 def normalize(signals, instance=True):
     """
+    normalize the signal.
+
     Args:
-        signals:    (List) with sized [batch_size, #leads, signal length]
+        signals:    (Tensor) with sized [batch_size, #leads, signal length]
         instance:   (bool) True means normalize using signals's own means and stds. False means using whole training data means and stds.
     
     Returns:
-                    (List) with sized [batch_size, #leads, signal length]
+                    (Tensor) with sized [batch_size, #leads, signal length]
     """
     if instance:
         mean = signals.mean(-1).unsqueeze(-1).expand_as(signals)
@@ -364,6 +380,14 @@ def normalize(signals, instance=True):
         return (signals - mean) / std
 
 def wavelet_threshold(data, wavelet='sym8', noiseSigma=14):
+    """
+    denoise the signal by wavelet thresholding.
+
+    Args:
+        data: (Array) with sized []
+        wavelet:
+        noiseSigma:
+    """
     levels = int(np.floor(np.log2(data.shape[0])))
     WC = pywt.wavedec(data,wavelet,level=levels)
     threshold=noiseSigma*np.sqrt(2*np.log2(data.size))
@@ -371,15 +395,28 @@ def wavelet_threshold(data, wavelet='sym8', noiseSigma=14):
     return pywt.waverec(NWC, wavelet)
 
 def baseline_wander_removal(data):
+    """
+    baseline wander removal.
+
+    Args:
+        data: (Array)
+    """
     baseline = medfilt(data, 201)
     baseline = medfilt(baseline, 601)
     return data - baseline
 
 def _denoise_mp(signal):
+    """
+    multi threading wavelet threshold denoise
+    
+    Args:
+        signal: (Array)
+    """
     return baseline_wander_removal(wavelet_threshold(signal))
     
 def ekg_denoise(data, number_channels=None):
-    '''Denoise the ekg data parallely and return.
+    '''
+    Denoise the ekg data parallely and return.
     
     data: np.ndarray of shape [n_channels, n_samples]
     number_channels: the first N channels to be processed
@@ -404,6 +441,8 @@ def ekg_denoise(data, number_channels=None):
 
 def load_raw_dataset_and_pointwise_labels(raw_dataset):
     """
+    load ludb dataset and return pointwise labels that are used for UNet.
+
     Args:
         raw_dataset: (str) raw dataset path
     Returns:
@@ -449,6 +488,15 @@ def load_raw_dataset_and_pointwise_labels(raw_dataset):
     return X, Y
 
 def get_mask(table, length):
+    """
+    using label to mask signal
+
+    Args:
+        table: (list) with sized [#segments_in_signal, 3]
+        length: (int) signal length
+    Returns:
+        mask: (list) with sized [length]
+    """
     mask = [0] * length
     for triplet in table:
         start = triplet[0]
@@ -458,6 +506,12 @@ def get_mask(table, length):
     return mask
 
 def get_background(p, qrs, t):
+    """
+    the background version of get_mask
+
+    Args:
+        p, qrs, t: (list) with sized [length], the masked signal
+    """
     background = np.zeros_like(p)
     for i in range(len(p)):
         if p[i]==0 and qrs[i]==0 and t[i]==0:
@@ -467,6 +521,8 @@ def get_background(p, qrs, t):
 
 def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
     """
+    load LUDB dataset and preprocess the data.
+
     Args:
         raw_dataset:            (str) raw dataset path
         leads_seperate:         (bool) True if all leads are look as different subjects
@@ -478,11 +534,6 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
     """
 
     X, Y = load_raw_dataset_and_pointwise_labels(raw_dataset)
-    """
-    # maintenance
-    if fix_baseline_wander:
-        X = baselineWanderRemoval(X, FREQUENCY_OF_DATASET)
-    """
     if smooth:
         smoothed = []
         # number of signals
@@ -518,9 +569,11 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
 
     return Data.TensorDataset(X, Y)
 
-# this function is used to preprocess the IEC signal
+
 def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True):
     """
+    preprocess the IEC signal.
+
     Args:
         data:           (Array) with sized [#signals, signal length, #leads]
         leads_seperate: (bool) True if all leads are look as different subjects' signals
@@ -570,8 +623,12 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
 
 def signal_augmentation(sigs, gaussian_noise_sigma=0.1):
     """
+    data augmentation by adding gaussian noise.
+
     Args:
         sigs: (numpy) with sized [batch_size, #channels, signal length]
+    Returns:
+        sigs: (numpy) with sized [batch_size, #channels, signal_length]
     """
     if gaussian_noise_sigma != 0:
         noise = np.random.normal(0, gaussian_noise_sigma, size=sigs.shape)
@@ -581,10 +638,30 @@ def signal_augmentation(sigs, gaussian_noise_sigma=0.1):
     return sigs
 
 def entropy_calc(data, base=None):
+    """
+    *experimental*
+    calculate the shannon entropy of one signal
+
+    Args:
+        data: (Array) with sized [signal_length]
+        base: (float) the logarithmic base to use
+    Return:
+        entropy
+
+    """
     value, counts = np.unique(data, return_counts=True)
     return entropy(counts, base=base)
 
 def signal_rdp(signal, epsilon=10):
+    """
+    using rdp algorithm to simplify the curve line.
+
+    Args:
+        signal: (list) with sized [signal_length]
+        epsilon: (float) distance threshold for rdp
+    Return:
+        ret: (list) with sized [#simplify_points], return the simplified points' index.
+    """
     process_data = []
     for i in range(len(signal)):
         process_data.append([i, signal[i]])

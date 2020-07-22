@@ -6,6 +6,8 @@ from matplotlib.collections import LineCollection
 
 def predict_plotter(x, pred, y=None, name="test"):
     """
+    return the predict (and ground truth) visualization result (pyplot object) and save the image to folder
+
     Args:
         x:      (Tensor) input signals with sized [signal length]
         pred:   (Tensor) predict labels with sized [#channels, signal length]
@@ -56,14 +58,3 @@ def predict_plotter(x, pred, y=None, name="test"):
     plt.savefig(os.path.join("./out_pic", name+".png"))
 
     return plt
-
-def signals_plot_all(signals):
-    """
-    Args:
-        signals: (Tensor) with sized [#signals, signal length]
-    """
-    for i in range(signals.shape[0]):
-        plt.close('all')
-        plt.plot(range(signals.shape[1]), signals[i])
-        plt.savefig("./out_pic/" + str(i) + ".png")
-    plt.close('all')

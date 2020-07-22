@@ -6,22 +6,27 @@ from model.RetinaNet import RetinaNet
 from model.UNet import UNet
 import wandb
 
+import configparser
+
+config = configparser.ConfigParser()
+config.read("config.cfg")
+
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-config = {
+configs = {
     "test_denoise": True,
 }
 
 if __name__ == "__main__":
     wandb.init(project="PQRST-segmentation")
-    wandb.config.setdefaults(config)
+    wandb.config.setdefaults(configs)
     num_classes = 3
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", help="test with specific model(default: retinanet)", type=str, choices=["retinanet", "unet"])
     parser.add_argument("-v", "--visual", help="test with specific model and visualize the result.", action="store_true")
-    parser.add_argument("-p", "--path", help="test with specific model weight file from path", type=str, default="weights/retinanet_pass_all_IEC_1.pkl")
+    parser.add_argument("-p", "--path", help="test with specific model weight file from path", type=str, default=config["RetinaNet"]["weight_load_path"])
     args = parser.parse_args()
 
     if args.model == "retinanet":

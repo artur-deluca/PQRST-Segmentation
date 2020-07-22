@@ -14,4 +14,4 @@ if __name__ == "__main__":
         train_unet.train()
     else:
         # default using retinanet to train
-        train_retinanet.train()
+        train_retinanet.train() 

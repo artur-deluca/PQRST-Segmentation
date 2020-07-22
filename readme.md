@@ -31,3 +31,31 @@ This model use the same evaluation method as previous approach. But a little bit
 The tolerance used in second evaluation method is fixed to [10, 10, 10, 25] on mean and [15, 10, 10, 30] on standard deviation. And the first evaluation method tolerance was set to be 10ms.
 ## Result
 This approach can get 0.968 F1-score which is better than previous approach using UNet. And can reach about 0.8 accuracy on IEC dataset using second evaluation method.
+
+# Usage
+## Dependencies
+1. Use `pipenv` to install dependencies and activate virtualenv:
+    ```
+    pipenv sync
+    pipenv shell
+    ```
+2. `wandb` setup:
+    ```
+    wandb login
+    ```
+## Data Preprocessing
+Apply denoising and normalize to EKG.
+
+Setup `config.cfg`
+- Set `use_gpu_num` for training
+- Set directories and label files for `RetinaNet`
+- Set training and testing options for model training and testing
+    - Set denoise option to `True` to activate denosing, otherwise set the option to `False`
+
+## Training
+```
+python3 train.py --model retinanet
+```
+
+## Prediction
+See [`tutorial.ipynb`](./tutorial.ipynb) for more details about prediction.

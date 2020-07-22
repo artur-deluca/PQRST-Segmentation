@@ -1,3 +1,7 @@
+"""
+this file is mainly used for label calculation on CAL and ANE data.
+"""
+
 import json
 
 def calc_label():

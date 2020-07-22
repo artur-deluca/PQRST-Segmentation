@@ -18,6 +18,14 @@ app.config.from_object(__name__)
 CORS(app, support_credentials=True)
 
 def get_CSE_ekg(f):
+    """
+    get CSE data from CSE raw file.
+
+    Args:
+        f: (File Object)
+    Return:
+        signals: (Array) with sized[2, signal_length]
+    """
     f.seek(0x200) # 512
     values = np.frombuffer(f.read(), dtype=np.int16)
     signals = np.array([values[0::2], values[1::2]])
@@ -25,6 +33,8 @@ def get_CSE_ekg(f):
 
 def get_big_exam_ekg(f):
     """
+    get big exam data from big exam raw file.
+
     Args:
         f: (File Object)
     Return:
@@ -60,8 +70,12 @@ def get_big_exam_ekg(f):
 @app.route('/PQRSTSegmentation', methods=['POST'])
 def testing_using_retinanet():
     """
+    test RetinaNet and return the segmentation result.
+
     Args:
         signal: (tensor) with sized [1, 1, data_length]
+    Returns:
+        (json): result prediction with preprocessed input and final predict segmentation.
     """
     signal = request.json["raw"]
     signal = np.asarray(signal).astype(float)
@@ -81,6 +95,11 @@ def testing_using_retinanet():
 
 @app.route('/UploadFile', methods=['POST'])
 def read_input_file():
+    """
+    API enter point. Check the file type and processed the signal.
+    Returns:
+        (json) same as function "testing_using_retinanet"
+    """
     f = request.files.get('raw')
     try:
         # file type bin

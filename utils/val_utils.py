@@ -4,21 +4,26 @@ from data.encoder import DataEncoder
 from utils.data_utils import box_to_sig_generator, onset_offset_generator
 from utils.viz_utils import predict_plotter
 import wandb
+import configparser
+config = configparser.ConfigParser()
+config.read("config.cfg")
 
 def validation_accuracy(pred_onset_offset, gt_onset_offset):
     """
+    The evaluation method that are used in the paper "Deep Learning for ECG Segmentation"
+
     Args:
-        pred_onset_offset:  (Tensor) with sized [batch_size, #channels, signal length]
-        gt_onset_offset:    (Tensor) with sized [batch_size, #channels, signal length]
+        pred_onset_offset:  (Tensor) with sized [batch_size, #channels, signal_length]
+        gt_onset_offset:    (Tensor) with sized [batch_size, #channels, signal_length]
 
     Returns:
-        TP: (int) True positive
-        FP: (int) False positive
-        FN: (int) False negetive
+        TP: (int) True positive count
+        FP: (int) False positive count
+        FN: (int) False negetive count
     """
     # (batch_size, 4, seconds) only first 3 channels will be used
 
-    tol = 5
+    tol = int(config["General"]["F1_tolerance"])
 
     TP = 0
     FP = 0
@@ -64,6 +69,8 @@ def validation_accuracy(pred_onset_offset, gt_onset_offset):
 
 def validation_duration_accuracy(onset_offset):
     """
+    the evaluation method that are used in IEC dataset
+
     Args:
         onset_offset: (Tensor) with sized [batch_size, #channels=4, signal length]
     
@@ -157,6 +164,8 @@ def validation_duration_accuracy(onset_offset):
 
 def eval_unet(net, loader, device):
     """
+    the evaluation function that can be used during UNet training.
+
     Args:
         net:    (nn.Module) UNet module variable
         loader: (DataLoader) validation dataloader
@@ -214,6 +223,8 @@ def eval_unet(net, loader, device):
 
 def eval_retinanet(model, dataloader):
     """
+    the evaluation function that can be used during RetinaNet training.
+
     Args:
         model:      (nn.Module) RetinaNet module variable
         dataloader: (DataLoader) validation dataloader
@@ -273,7 +284,7 @@ def eval_retinanet(model, dataloader):
     pred_signals = torch.cat(pred_sigs, 0)
     gt_signals = torch.cat(gt_sigs, 0)
     plot = predict_plotter(sigs[0][0], pred_signals[0], gt_signals[0])
-    wandb.log({"visualization": plot})
+    #wandb.log({"visualization": plot})
     pred_onset_offset = onset_offset_generator(pred_signals)
     gt_onset_offset = onset_offset_generator(gt_signals)
     TP, FP, FN = validation_accuracy(pred_onset_offset, gt_onset_offset)
