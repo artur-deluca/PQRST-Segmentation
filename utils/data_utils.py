@@ -570,7 +570,7 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
     return Data.TensorDataset(X, Y)
 
 
-def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True):
+def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True, target_length=4992):
     """
     preprocess the IEC signal.
 
@@ -598,7 +598,7 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
         dnsigs = []
         for i in range(data.shape[0]):
             dnsigs.append(ekg_denoise(data[i]))
-        dnsigs = np.array(dnsigs)[:, :, :4992]
+        dnsigs = np.array(dnsigs)[:, :, :target_length]
         dnsigs = torch.Tensor(dnsigs)
         dnsigs /= scale
         return dnsigs
@@ -608,14 +608,14 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True)
         for i in range(data.shape[0]):
             smoothed.append(smooth_signal(data[i, 0, :], window_len=10))
 
-        smoothed = np.array(smoothed)[:, np.newaxis, :4992]
+        smoothed = np.array(smoothed)[:, np.newaxis, :target_length]
         smoothed = torch.Tensor(smoothed)
 
         return smoothed
 
     else:
         #data = data[:, :, 500:4500]
-        data = data[:, :, :4992]
+        data = data[:, :, :target_length]
         
         data = torch.Tensor(data)
 

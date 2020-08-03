@@ -54,6 +54,8 @@ def load_ANE_CAL(denoise=True, pre=False, save=True, nor=True):
     # (num of ekg signal, length, 1)
     if pre:
         ekg_sig = torch.load(config["RetinaNet"]["output_path"]+"CAL_preprocessed_data.pt").to('cuda')
+        if nor:
+            ekg_sig = normalize(ekg_sig, instance=True)
     else:
         ekg_sig = []
         for i in range(len(name)):
@@ -144,7 +146,7 @@ def removeworst(mean_diff, remove_num):
     return mean_diff
 
 def qrs_seperation(ekg_sig, final_preds):
-    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=False)
+    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=True)
     ekg_sig = ekg_sig.cpu().numpy()
 
     """qrs segmentation"""

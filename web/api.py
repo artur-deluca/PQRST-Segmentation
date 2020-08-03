@@ -73,21 +73,22 @@ def testing_using_retinanet():
     test RetinaNet and return the segmentation result.
 
     Args:
-        signal: (tensor) with sized [1, 1, data_length]
+        signal: (tensor) with sized [batch_size, 1, data_length]
     Returns:
         (json): result prediction with preprocessed input and final predict segmentation.
     """
     signal = request.json["raw"]
     signal = np.asarray(signal).astype(float)
     signal = signal.reshape((signal.shape[0], signal.shape[1], 1))
-    signal = IEC_dataset_preprocessing(signal, smooth=False, dns=False).cuda()
+    target_length = (signal.shape[1] // 64) * 64
+    signal = IEC_dataset_preprocessing(signal, smooth=False, dns=True, target_length=target_length).cuda()
     signal = normalize(signal)
     net = RetinaNet(3).cuda()
     #net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
-    net.load_state_dict(torch.load("weights/retinanet_best_pass_all(CAL)_22.pkl"))
+    net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
     final_preds = []
     for i in range(signal.size(0) // 128 + 1):
-        _, _, pred_signals = test_retinanet(net, signal[i*128:(i+1)*128, :, :], 4992, visual=False)
+        _, _, pred_signals = test_retinanet(net, signal[i*128:(i+1)*128, :, :], target_length, visual=False)
         final_preds.append(pred_signals)
     final_preds = torch.cat(final_preds, dim=0)
 
@@ -111,7 +112,7 @@ def read_input_file():
         signal = signals[0].reshape((1, -1))
 
     payload = {"raw": signal.tolist()}
-    
+
     res = requests.post('http://gpu4.mip.nctu.me:8888/PQRSTSegmentation', json=payload)
 
     return res.json()

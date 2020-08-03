@@ -31,7 +31,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
     """
     net.eval()
     loc_preds, cls_preds = net(x)
-    
+
     loc_preds = loc_preds.data.type(torch.FloatTensor)
     cls_preds = cls_preds.data.type(torch.FloatTensor)
 
@@ -39,7 +39,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
         loc_targets, cls_targets = ground_truth
         loc_targets = loc_targets.data.type(torch.FloatTensor)
         cls_targets = cls_targets.data.type(torch.LongTensor)
-    
+
     batch_size = x.size(0)
     encoder = DataEncoder()
 
@@ -51,7 +51,7 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
             boxes = boxes.ceil()
             xmin = boxes[:, 0].clamp(min = 1)
             xmax = boxes[:, 1].clamp(max = input_length - 1)
-        
+
             pred_sig = box_to_sig_generator(xmin, xmax, labels, input_length, background=False)
 
         else:
@@ -71,12 +71,12 @@ def test_retinanet(net, x, input_length, ground_truth=None, visual=False):
         else:
             for i in range(batch_size):
                 plot = predict_plotter(x[i][0], pred_signals[i], name=str(i))
-        
+
     if ground_truth:
         gt_signals = torch.cat(gt_sigs, 0)
         gt_onset_offset = onset_offset_generator(gt_signals)
         TP, FP, FN = validation_accuracy(pred_onset_offset, gt_onset_offset)
-    
+
     intervals = validation_duration_accuracy(pred_onset_offset[:, 1:, :])
     return plot, intervals, pred_signals
 
@@ -97,7 +97,7 @@ def test_retinanet_using_IEC(net, visual=False):
     tol_std_pri = 10
     tol_std_qrsd = 10
     tol_std_qt = 30
-    
+
     ekg_sig = load_IEC(denoise=wandb.config.test_denoise, pre=True)
     #ekg_sig = torch.nn.ConstantPad1d(15, 0)(ekg_sig)[:, :, :4992]
 
@@ -152,20 +152,20 @@ def test_retinanet_using_IEC(net, visual=False):
         ans[2] = "Passed"
     if abs(mean_mean_diff[3]) <= tol_qt and std_mean_diff[3] <= tol_std_qt:
         ans[3] = "Passed"
-    
+
     print(mean_mean_diff)
     print(std_mean_diff)
     print(ans)
 
-    wandb.log({"pd_mean_diff_mean": mean_mean_diff[0], 
-                "pri_mean_diff_mean": mean_mean_diff[1], 
-                "qrsd_mean_diff_mean": mean_mean_diff[2], 
+    wandb.log({"pd_mean_diff_mean": mean_mean_diff[0],
+                "pri_mean_diff_mean": mean_mean_diff[1],
+                "qrsd_mean_diff_mean": mean_mean_diff[2],
                 "qt_mean_diff_mean": mean_mean_diff[3]})
     wandb.log({"pd_mean_diff_std": std_mean_diff[0],
                 "pri_mean_diff_std": std_mean_diff[1],
                 "qrsd_mean_diff_std": std_mean_diff[2],
                 "qt_mean_diff_mean": std_mean_diff[3]})
-    
+
     result = correct/total
     wandb.log({"result_pd": result[0], "result_pri": result[1], "result_qrsd": result[2], "result_qt": result[3]})
     return result, ans
@@ -187,12 +187,11 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
     tol_std_pri = 8
     tol_std_qrsd = 5
     tol_std_qt = 10
-    
+
     ekg_sig = load_ANE_CAL(denoise=True, pre=True)
     #ekg_sig = torch.nn.ConstantPad1d(15, 0)(ekg_sig)[:, :, :4992]
 
     plot, intervals, _ = test_retinanet(net, ekg_sig, 4992, visual=visual)
-
 
     table_mean = []
     for i in range(len(intervals)):
@@ -240,20 +239,20 @@ def test_retinanet_using_ANE_CAL(net, visual=False):
         ans[2] = "Passed"
     if abs(mean_mean_diff[3]) <= tol_qt and std_mean_diff[3] <= tol_std_qt:
         ans[3] = "Passed"
-    
+
     print(mean_mean_diff)
     print(std_mean_diff)
     print(ans)
 
-    wandb.log({"pd_mean_diff_mean": mean_mean_diff[0], 
-                "pri_mean_diff_mean": mean_mean_diff[1], 
-                "qrsd_mean_diff_mean": mean_mean_diff[2], 
+    wandb.log({"pd_mean_diff_mean": mean_mean_diff[0],
+                "pri_mean_diff_mean": mean_mean_diff[1],
+                "qrsd_mean_diff_mean": mean_mean_diff[2],
                 "qt_mean_diff_mean": mean_mean_diff[3]})
     wandb.log({"pd_mean_diff_std": std_mean_diff[0],
                 "pri_mean_diff_std": std_mean_diff[1],
                 "qrsd_mean_diff_std": std_mean_diff[2],
                 "qt_mean_diff_mean": std_mean_diff[3]})
-    
+
     result = correct/total
     wandb.log({"result_pd": result[0], "result_pri": result[1], "result_qrsd": result[2], "result_qt": result[3]})
     return result, ans
@@ -267,9 +266,9 @@ def test_retinanet_by_qrs(net):
         net: (nn.Module) Retinanet module
     """
     ekg_sig = load_ANE_CAL(denoise=False, pre=False, nor=False)
-    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=False)
+    turn_point = get_signals_turning_point_by_rdp(ekg_sig, load=True)
     print(len(turn_point[0]))
-    
+
     final_preds = []
     ekg_sig = normalize(ekg_sig)
     for i in range(ekg_sig.size(0) // 128 + 1):
@@ -291,7 +290,7 @@ def test_retinanet_by_qrs(net):
                     j += 1
                 qrs_interval[i][-1].append(j)
             j += 1
-    
+
     enlarge_qrs = enlarge_qrs_list(qrs_interval)
 
     turning = []
@@ -302,7 +301,7 @@ def test_retinanet_by_qrs(net):
             turning[index].append(filtered_peaks)
             idx = find_index_closest_to_value(ekg_sig[index, 0, filtered_peaks[1]:filtered_peaks[2]], ekg_sig[index, 0, filtered_peaks[0]])
             idx = idx + filtered_peaks[1] - enlarge_qrs[index][j][0]
-    
+
     pred = []
     for i in range(len(turning)):
         pred.append({"q_duration": [], "r_duration": [], "s_duration": []})
@@ -331,7 +330,7 @@ def test_retinanet_by_qrs(net):
                 # q,r or r,s
                 if ekg_sig[i, 0, turning[i][j][1]] > ekg_sig[i, 0, turning[i][j][2]]:
                     pred[i]["q_duration"].append(0)
-                    # r, s            
+                    # r, s
                     # find s duration
                     s_start = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][1]: turning[i][j][2]], ekg_sig[i, 0, turning[i][j][3]])
                     s_start = s_start + turning[i][j][1]
@@ -350,7 +349,7 @@ def test_retinanet_by_qrs(net):
                     q_end = find_index_closest_to_value(ekg_sig[i, 0, turning[i][j][1]: turning[i][j][2]], ekg_sig[i, 0, turning[i][j][0]])
                     q_end = q_end + turning[i][j][1]
                     q_duration = q_end - turning[i][j][0]
-                    pred[i]["q_duration"].append(q_duration)                
+                    pred[i]["q_duration"].append(q_duration)
                     # find r duration
                     r_start = q_end
                     r_duration = turning[i][j][3] - r_start
@@ -403,9 +402,9 @@ def test_retinanet_by_qrs(net):
         mean_diff[0][i] = np.mean(q_temp_mean)*2 - standard_qrs[i]["q_duration"]
         mean_diff[1][i] = np.mean(r_temp_mean)*2 - standard_qrs[i]["r_duration"]
         mean_diff[2][i] = np.mean(s_temp_mean)*2 - standard_qrs[i]["s_duration"]
-    print(pd.DataFrame(mean_diff.T, columns=["q","r","s"]))
-    print(np.mean(mean_diff, axis=1))
-    print(np.std(mean_diff, axis=1, ddof=1))
+    #print(pd.DataFrame(mean_diff.T, columns=["q","r","s"]))
+    #print(np.mean(mean_diff, axis=1))
+    #print(np.std(mean_diff, axis=1, ddof=1))
     mean_diff = removeworst(mean_diff, 4)
     mean_diff_mean = np.mean(mean_diff, axis=1)
     mean_diff_std = np.std(mean_diff, axis=1, ddof=1)

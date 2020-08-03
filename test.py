@@ -34,6 +34,7 @@ if __name__ == "__main__":
         net.load_state_dict(torch.load(args.path))
         result = test_retinanet.test_retinanet_using_IEC(net, args.visual)
         result2 = test_retinanet.test_retinanet_using_ANE_CAL(net, args.visual)
+        test_retinanet.test_retinanet_by_qrs(net)
     elif args.model == "unet":
         net = UNet(1, 4).cuda()
         net.load_state_dict(torch.load(args.path))
