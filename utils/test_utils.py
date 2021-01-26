@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import json
@@ -18,7 +19,7 @@ def load_IEC(denoise=True, pre=False):
         ekg_sig: (Tensor) with sized [#signals, 1 lead, signal_length]
     """
     # (num of ekg signal, length, 1)
-    if pre:
+    if pre and os.path.isfile(config["RetinaNet"]["output_path"]+"IEC_preprocessed_data.pt"):
         ekg_sig = torch.load(config["RetinaNet"]["output_path"]+"IEC_preprocessed_data.pt").to('cuda')
     else:
         ekg_sig = [] 
@@ -52,7 +53,7 @@ def load_ANE_CAL(denoise=True, pre=False, save=True, nor=True):
     """
     name = json.loads(config["General"]["CAL_name"])
     # (num of ekg signal, length, 1)
-    if pre:
+    if pre and os.path.isfile(config["RetinaNet"]["output_path"]+"CAL_preprocessed_data.pt"):
         ekg_sig = torch.load(config["RetinaNet"]["output_path"]+"CAL_preprocessed_data.pt").to('cuda')
         if nor:
             ekg_sig = normalize(ekg_sig, instance=True)
@@ -89,7 +90,7 @@ def get_signals_turning_point_by_rdp(signals, load=True, save=True):
     Returns:
         turn_point: (list) with sized [#signals, #turning_points_per_signal]
     """
-    if load:
+    if load and os.path.isfile(config["RetinaNet"]["output_path"]+"CAL_turning_point_preprocessed_data.pt"):
         turn_point = torch.load(config["RetinaNet"]["output_path"]+"CAL_turning_point_preprocessed_data.pt")
         return turn_point
     turn_point = []

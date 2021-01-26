@@ -4,6 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+flake8 = "*"
 
 [packages]
 torch = "*"
@@ -29,6 +30,7 @@ flask-cors = "*"
 openpyxl = "*"
 ica = "*"
 rdp = "*"
+einops = "*"
 
 [requires]
 python_version = "3.6"

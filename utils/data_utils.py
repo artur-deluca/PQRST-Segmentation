@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.utils.data as Data
 import json
 import pywt
 from rdp import rdp
@@ -519,7 +520,7 @@ def get_background(p, qrs, t):
     return background
 
 
-def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True):
+def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_seperate=True, fix_baseline_wander=False, smooth=True, data_aug=True):
     """
     load LUDB dataset and preprocess the data.
 
@@ -543,13 +544,13 @@ def load_dataset_using_pointwise_labels(raw_dataset=raw_dataset_path, leads_sepe
                 smoothed.append(smooth_signal(X[i, :, j]))
         X = np.array(smoothed)[:, :5000, np.newaxis]
         
-
-    # data augmentation and modification
-    # delete first and last 2 seconds
-    X, Y = X[:, 1000:4000, :], Y[:, 1000:4000, :]
-    # data augmentation by randomly choosing 4 seconds to load to the model
-    X = np.concatenate((np.concatenate((X[:, 0:2000, :], X[:, 500:2500, :]), axis=0), X[:, 1000:3000, :]), axis=0)
-    Y = np.concatenate((np.concatenate((Y[:, 0:2000, :], Y[:, 500:2500, :]), axis=0), Y[:, 1000:3000, :]), axis=0)
+    if data_aug==True:
+        # data augmentation and modification
+        # delete first and last 2 seconds
+        X, Y = X[:, 1000:4000, :], Y[:, 1000:4000, :]
+        # data augmentation by randomly choosing 4 seconds to load to the model
+        X = np.concatenate((np.concatenate((X[:, 0:2000, :], X[:, 500:2500, :]), axis=0), X[:, 1000:3000, :]), axis=0)
+        Y = np.concatenate((np.concatenate((Y[:, 0:2000, :], Y[:, 500:2500, :]), axis=0), Y[:, 1000:3000, :]), axis=0)
 
     if leads_seperate == True:
         # (num_input, points, 12 leads)
@@ -597,7 +598,7 @@ def IEC_dataset_preprocessing(data, leads_seperate=True, smooth=False, dns=True,
         data *= scale
         dnsigs = []
         for i in range(data.shape[0]):
-            dnsigs.append(ekg_denoise(data[i]))
+            dnsigs.append(ekg_denoise(data[i][:, :target_length]))
         dnsigs = np.array(dnsigs)[:, :, :target_length]
         dnsigs = torch.Tensor(dnsigs)
         dnsigs /= scale
