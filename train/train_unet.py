@@ -8,7 +8,7 @@ import wandb
 from torch import optim
 from tqdm import tqdm
 
-from model import UNet
+from model.UNet import UNet
 from utils.val_utils import eval_unet
 from utils.data_utils import load_dataset_using_pointwise_labels
 from test import test_unet

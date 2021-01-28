@@ -1,7 +1,8 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
-
+import wandb
 from model.UNet import UNet
 from utils.data_utils import onset_offset_generator
 from utils.val_utils import validation_duration_accuracy
@@ -43,7 +44,7 @@ def test(net, x, ground_truth=None):
     intervals = validation_duration_accuracy(output_onset_offset)
     return plot, intervals
 
-def test_using_IEC(net):
+def test_unet_using_IEC(net):
     """
     test the UNet by IEC dataset and IEC standard evaluation method.
 
@@ -52,7 +53,7 @@ def test_using_IEC(net):
     Returns:
         result: (Array) with sized [4], means the 4 segments' accuracy.
     """
-    tol = 30    
+    tol = 30
     ekg_sig = load_IEC(pre=True)
     plot, intervals = test(net, ekg_sig)
 

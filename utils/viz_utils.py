@@ -18,7 +18,7 @@ def predict_plotter(x, pred, y=None, name="test"):
     x = x.detach().cpu().numpy()
     pred = pred.detach().cpu().numpy()
 
-    color = ["black", "red", "blue", "green"]
+    color = ["green", "red", "blue", "black"]
     color_arg_pred = np.argmax(pred, axis=0)
     color_table_pred = []
 
