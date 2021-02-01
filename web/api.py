@@ -19,6 +19,8 @@ app.config.from_object(__name__)
 
 CORS(app, support_credentials=True)
 
+retinanet_model_path = None
+
 def outlier_removal(signal, outlier_value=-32768):
     '''Remove the suddent outliers (which have the values of -32768) from the signal inplace.
     args:
@@ -93,6 +95,7 @@ def testing_using_retinanet():
     Returns:
         (json): result prediction with preprocessed input and final predict segmentation.
     """
+    global retinanet_model_path
     signal = request.json['ECG']
     #denoise = request.json["denoise"]
     denoise = False
@@ -104,7 +107,7 @@ def testing_using_retinanet():
     signal = normalize(signal)
     net = RetinaNet(3).cuda()
     #net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
-    net.load_state_dict(torch.load("weights/retinanet_best_IEC.pkl"))
+    net.load_state_dict(torch.load(retinanet_model_path))
     batch_size = 128
     final_preds = []
     for i in range(signal.size(0) // batch_size + 1):
@@ -210,5 +213,6 @@ def read_snp(main_sampling_rate=500, channel_sampling_rate=None):
     payload = jsonify({'ECG': list(outputs[0]), 'PCG': list(outputs[1])})
     return payload
 
-def run():
+def run(model_path):
+    retinanet_model_path = model_path
     app.run(host='0.0.0.0', port=8899)
