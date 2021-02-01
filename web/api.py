@@ -214,5 +214,6 @@ def read_snp(main_sampling_rate=500, channel_sampling_rate=None):
     return payload
 
 def run(model_path):
+    global retinanet_model_path
     retinanet_model_path = model_path
     app.run(host='0.0.0.0', port=8899)
