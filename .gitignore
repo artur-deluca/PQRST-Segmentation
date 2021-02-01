@@ -1,6 +1,10 @@
 *.pkl
 *.yaml
-data
+*.pt
+*.xls
+*.json
+IEC
+big_exam
 wandb
 audicor_reader
 out_pic
